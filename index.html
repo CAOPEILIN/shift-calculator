@@ -162,15 +162,40 @@
       .w-alarms{font-size:12px;color:var(--muted);font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums;line-height:1.5;}
       .w-tomorrow{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);font-size:13px;font-weight:700;line-height:1.5;font-variant-numeric:tabular-nums;white-space:normal;overflow-wrap:anywhere;}
       .w-tomorrow span{color:var(--muted);font-weight:600;font-size:12px;}
-      html[data-hatch-size="small"] .w-card{padding:10px;}
+      .w-tmalarms{display:none;font-size:12px;color:var(--muted);font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;line-height:1.5;}
+      /* ---------- Widget: week strip (large only) ---------- */
+      .w-week{display:none;margin-top:auto;padding-top:12px;border-top:1px dashed var(--line);}
+      .w-week-title{font-size:12px;color:var(--muted);font-weight:700;margin-bottom:8px;}
+      .w-week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+      .w-day{border-radius:10px;padding:7px 2px 6px;text-align:center;background:var(--surface2);}
+      .w-day .wd{display:block;font-size:11px;color:var(--muted);font-weight:700;line-height:1.3;}
+      .w-day .wn{display:block;font-size:15px;font-weight:800;line-height:1.25;font-variant-numeric:tabular-nums;}
+      .w-day .ws{display:block;font-size:11px;font-weight:800;line-height:1.3;}
+      .w-day.C{background:var(--c-bg);} .w-day.C .ws{color:var(--c);}
+      .w-day.J1{background:var(--j-bg);} .w-day.J1 .ws{color:var(--j);}
+      .w-day.M{background:var(--m-bg);} .w-day.M .ws{color:var(--m);}
+      .w-day.DO{background:var(--do-bg);} .w-day.DO .ws{color:var(--do);}
+      .w-day.is-today{outline:2px solid var(--accent);outline-offset:-1px;}
+      /* ---------- Widget sizes ---------- */
+      html[data-hatch-size="small"] .w-card{padding:10px;justify-content:flex-start;}
       html[data-hatch-size="small"] .w-date{font-size:11px;line-height:1.35;}
       html[data-hatch-size="small"] .w-shift{font-size:30px;}
       html[data-hatch-size="small"] .w-times{font-size:12px;line-height:1.4;}
       html[data-hatch-size="small"] .w-alarms{display:none;}
-      html[data-hatch-size="small"] .w-tomorrow{margin-top:8px;padding-top:8px;font-size:11px;line-height:1.45;white-space:normal;overflow-wrap:anywhere;}
+      html[data-hatch-size="small"] .w-tomorrow{margin-top:auto;padding-top:8px;font-size:11px;line-height:1.45;white-space:normal;overflow-wrap:anywhere;}
+      html[data-hatch-size="large"] .w-card{justify-content:flex-start;padding:18px;}
+      html[data-hatch-size="large"] .w-shift{font-size:52px;}
+      html[data-hatch-size="large"] .w-times{font-size:17px;}
+      html[data-hatch-size="large"] .w-alarms{font-size:13px;}
+      html[data-hatch-size="large"] .w-tmalarms{display:block;}
+      html[data-hatch-size="large"] .w-week{display:block;}
       html[data-hatch-size="watch"] .w-card, html[data-hatch-size="watch_round"] .w-card{background:#000;border-color:#222;color:#fff;}
       html[data-hatch-size="watch"] .w-date, html[data-hatch-size="watch_round"] .w-date{color:#aaa;}
-      html[data-hatch-size="watch_round"] .w-card{border-radius:50%;text-align:center;align-items:center;padding:22px;}
+      html[data-hatch-size="watch"] .w-alarms, html[data-hatch-size="watch_round"] .w-alarms{display:none;}
+      html[data-hatch-size="watch"] .w-shift, html[data-hatch-size="watch_round"] .w-shift{font-size:32px;}
+      html[data-hatch-size="watch"] .w-times, html[data-hatch-size="watch_round"] .w-times{font-size:12px;line-height:1.4;}
+      html[data-hatch-size="watch"] .w-tomorrow, html[data-hatch-size="watch_round"] .w-tomorrow{font-size:11px;line-height:1.4;}
+      html[data-hatch-size="watch_round"] .w-card{border-radius:50%;text-align:center;align-items:center;padding:24px;}
     </style>
   </head>
   <body>
@@ -182,6 +207,11 @@
         <div class="w-times" id="wTimes">—</div>
         <div class="w-alarms" id="wAlarms">—</div>
         <div class="w-tomorrow" id="wTomorrow">—</div>
+        <div class="w-tmalarms" id="wTmAlarms"></div>
+        <div class="w-week" id="wWeek">
+          <div class="w-week-title">接下来一周</div>
+          <div class="w-week-grid" id="wWeekGrid"></div>
+        </div>
       </div>
     </section>
 
@@ -425,12 +455,16 @@
       // initial detail = today
       renderDetail(selectedCode, selectedDay);
 
-      // ===== Widget: top = today, bottom = tomorrow =====
+      // ===== Widget: top = today, bottom = tomorrow (+ week strip on large) =====
+      var wSize = document.documentElement.getAttribute("data-hatch-size") || "";
+      var wCompact = (wSize==="small" || wSize==="watch" || wSize==="watch_round");
       document.getElementById("wDate").textContent = "今天 · "+(now.getMonth()+1)+"月"+now.getDate()+"日 "+WEEK[now.getDay()];
       if (todayCode){
         var ws = SHIFTS[todayCode];
         document.getElementById("wShift").textContent = todayCode==="DO" ? "休息 DO" : ws.label;
-        document.getElementById("wTimes").textContent = todayCode==="DO" ? "今天不用上班" : ws.start+" 上班 → "+ws.end+(ws.nextDay?" (次日)":"")+" 下班";
+        document.getElementById("wTimes").textContent = todayCode==="DO" ? "今天不用上班" :
+          wCompact ? ws.start+" → "+ws.end+(ws.nextDay?" 次日":"") :
+                     ws.start+" 上班 → "+ws.end+(ws.nextDay?" (次日)":"")+" 下班";
         document.getElementById("wAlarms").textContent = todayCode==="DO" ? "不用设闹钟" : "闹钟 "+ws.alarms.map(function(a){return a.t+" "+a.label;}).join(" · ");
       } else {
         document.getElementById("wShift").textContent = "暂无排班";
@@ -438,12 +472,27 @@
         document.getElementById("wAlarms").textContent = "";
       }
       var wTm = document.getElementById("wTomorrow");
+      var wTmA = document.getElementById("wTmAlarms");
       if (tomorrowCode){
         var wts = SHIFTS[tomorrowCode];
         wTm.innerHTML = "<span>明天 "+(tomorrow.getMonth()+1)+"/"+tomorrow.getDate()+"</span> "+(tomorrowCode==="DO" ? "休息 DO · 不用上班" : wts.label+" · "+wts.start+" 上班");
+        wTmA.textContent = tomorrowCode==="DO" ? "明天休息，不用设闹钟" : "明天闹钟 "+wts.alarms.map(function(a){return a.t;}).join(" · ");
       } else {
         wTm.innerHTML = "<span>明天 "+(tomorrow.getMonth()+1)+"/"+tomorrow.getDate()+"</span> 暂无排班";
+        wTmA.textContent = "";
       }
+      // Week strip: today + next 6 days (large widget only; CSS hides it elsewhere)
+      var WD1 = ["日","一","二","三","四","五","六"];
+      var weekHtml = "";
+      for (var wi=0; wi<7; wi++){
+        var wd = new Date(now.getFullYear(), now.getMonth(), now.getDate()+wi);
+        var wc = shiftOfDate(wd);
+        weekHtml += '<div class="w-day '+(wc||"")+(wi===0?" is-today":"")+'">' +
+          '<span class="wd">'+(wi===0?"今天":"周"+WD1[wd.getDay()])+'</span>' +
+          '<span class="wn">'+wd.getDate()+'</span>' +
+          '<span class="ws">'+(wc?SHIFTS[wc].short:"—")+'</span></div>';
+      }
+      document.getElementById("wWeekGrid").innerHTML = weekHtml;
     </script>
   </body>
 </html>
