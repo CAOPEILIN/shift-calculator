@@ -211,25 +211,6 @@
         <p class="out-note" id="tomorrowNote"></p>
       </section>
 
-      <!-- Picker -->
-      <h2>点班次，看时间</h2>
-      <p class="sub">点下面的班次，下方立刻显示上班、下班和你要开的三个闹钟。点日历里的日期也一样。</p>
-      <div class="shift-grid" role="group" aria-label="选择班次">
-        <button type="button" class="shift-btn" data-shift="C"><span class="name">C 班</span><span class="time">07:00 – 16:00<br>闹钟 05:30 起</span></button>
-        <button type="button" class="shift-btn" data-shift="J1"><span class="name">J1 班</span><span class="time">14:30 – 23:30<br>闹钟 12:50 起</span></button>
-        <button type="button" class="shift-btn" data-shift="M"><span class="name">M 班</span><span class="time">23:00 – 次日 08:00<br>闹钟 21:20 起</span></button>
-        <button type="button" class="shift-btn" data-shift="DO"><span class="name">DO</span><span class="time">例假休息<br>不用设闹钟</span></button>
-      </div>
-
-      <!-- Detail -->
-      <section class="detail" aria-label="班次详情" aria-live="polite">
-        <div class="detail-head">
-          <div class="detail-title" id="detailTitle">—</div>
-          <span class="detail-hours" id="detailHours">—</span>
-        </div>
-        <div id="detailBody"></div>
-      </section>
-
       <!-- Calendar -->
       <h2>2026 年 11 月整月排班</h2>
       <p class="sub">按你 11 月的排班表排的。点任意一天，下方详情会跳到那天；带绿框的是今天。</p>
@@ -252,6 +233,25 @@
         <div class="stat"><b>3</b><span>M 班 · 天</span></div>
         <div class="stat"><b>6</b><span>DO 休息 · 天</span></div>
       </div>
+
+      <!-- Picker -->
+      <h2>点班次，看时间</h2>
+      <p class="sub">点下面的班次，下方立刻显示上班、下班和你要开的三个闹钟。点日历里的日期也一样。</p>
+      <div class="shift-grid" role="group" aria-label="选择班次">
+        <button type="button" class="shift-btn" data-shift="C"><span class="name">C 班</span><span class="time">07:00 – 16:00<br>闹钟 05:30 起</span></button>
+        <button type="button" class="shift-btn" data-shift="J1"><span class="name">J1 班</span><span class="time">14:30 – 23:30<br>闹钟 12:50 起</span></button>
+        <button type="button" class="shift-btn" data-shift="M"><span class="name">M 班</span><span class="time">23:00 – 次日 08:00<br>闹钟 21:20 起</span></button>
+        <button type="button" class="shift-btn" data-shift="DO"><span class="name">DO</span><span class="time">例假休息<br>不用设闹钟</span></button>
+      </div>
+
+      <!-- Detail -->
+      <section class="detail" aria-label="班次详情" aria-live="polite">
+        <div class="detail-head">
+          <div class="detail-title" id="detailTitle">—</div>
+          <span class="detail-hours" id="detailHours">—</span>
+        </div>
+        <div id="detailBody"></div>
+      </section>
 
       <footer>班次时间：C 07:00–16:00 · J1 14:30–23:30 · M 23:00–次日 08:00<br>闹钟为你手机时钟里现有的三段式：起床 / 洗漱 / 出门。12 月排班出来后，把新表发我就能换上。</footer>
     </main>
