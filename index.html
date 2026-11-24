@@ -23,6 +23,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" href="data:," />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <title>排班计算器</title>
     <style>
       button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) { min-height: 2rem; }
@@ -80,6 +81,10 @@
       .tomorrow{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);font-size:14px;color:var(--muted);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;}
       .tomorrow b{color:var(--ink);}
       .out-note{margin-top:10px;font-size:13px;color:var(--muted);line-height:1.5;}
+      /* ---------- Tomorrow card (below today) ---------- */
+      .tomorrow-card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px;margin-top:12px;overflow:hidden;}
+      .tomorrow-shift{font-size:40px;line-height:1;font-weight:800;letter-spacing:-.02em;margin:12px 0 4px;font-variant-numeric:tabular-nums;}
+      .tomorrow-shift small{font-size:18px;font-weight:700;color:var(--muted);}
       /* ---------- Shift picker ---------- */
       h2{font-size:17px;margin:26px 0 4px;font-weight:800;}
       .sub{font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.5;}
@@ -155,8 +160,14 @@
       .w-shift{font-size:44px;font-weight:800;line-height:1.05;}
       .w-times{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;}
       .w-alarms{font-size:12px;color:var(--muted);font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums;line-height:1.5;}
-      html[data-hatch-size="small"] .w-shift{font-size:36px;}
+      .w-tomorrow{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);font-size:13px;font-weight:700;line-height:1.5;font-variant-numeric:tabular-nums;white-space:normal;overflow-wrap:anywhere;}
+      .w-tomorrow span{color:var(--muted);font-weight:600;font-size:12px;}
+      html[data-hatch-size="small"] .w-card{padding:10px;}
+      html[data-hatch-size="small"] .w-date{font-size:11px;line-height:1.35;}
+      html[data-hatch-size="small"] .w-shift{font-size:30px;}
+      html[data-hatch-size="small"] .w-times{font-size:12px;line-height:1.4;}
       html[data-hatch-size="small"] .w-alarms{display:none;}
+      html[data-hatch-size="small"] .w-tomorrow{margin-top:8px;padding-top:8px;font-size:11px;line-height:1.45;white-space:normal;overflow-wrap:anywhere;}
       html[data-hatch-size="watch"] .w-card, html[data-hatch-size="watch_round"] .w-card{background:#000;border-color:#222;color:#fff;}
       html[data-hatch-size="watch"] .w-date, html[data-hatch-size="watch_round"] .w-date{color:#aaa;}
       html[data-hatch-size="watch_round"] .w-card{border-radius:50%;text-align:center;align-items:center;padding:22px;}
@@ -164,18 +175,19 @@
   </head>
   <body>
     <!-- Widget view -->
-    <section id="widget" aria-label="今日班次小组件">
+    <section id="widget" aria-label="今日和明日班次小组件">
       <div class="w-card">
         <div class="w-date" id="wDate">—</div>
         <div class="w-shift" id="wShift">—</div>
         <div class="w-times" id="wTimes">—</div>
         <div class="w-alarms" id="wAlarms">—</div>
+        <div class="w-tomorrow" id="wTomorrow">—</div>
       </div>
     </section>
 
     <!-- App view -->
     <main id="app" class="wrap">
-      <!-- Today -->
+      <!-- Today (top) -->
       <section class="today-card" aria-label="今天的班次">
         <div class="today-top">
           <div class="today-date" id="todayDate">—</div>
@@ -184,8 +196,19 @@
         <div class="today-shift" id="todayShift">—</div>
         <div class="today-times" id="todayTimes">—</div>
         <div class="today-alarms" id="todayAlarms"></div>
-        <div class="tomorrow" id="tomorrowLine"></div>
         <p class="out-note" id="todayNote"></p>
+      </section>
+
+      <!-- Tomorrow (below today) -->
+      <section class="tomorrow-card" aria-label="明天的班次">
+        <div class="today-top">
+          <div class="today-date" id="tomorrowDate">—</div>
+          <span class="badge" id="tomorrowBadge">—</span>
+        </div>
+        <div class="tomorrow-shift" id="tomorrowShift">—</div>
+        <div class="today-times" id="tomorrowTimes">—</div>
+        <div class="today-alarms" id="tomorrowAlarms"></div>
+        <p class="out-note" id="tomorrowNote"></p>
       </section>
 
       <!-- Picker -->
@@ -300,12 +323,39 @@
         tNote.textContent = "下面可以手动点班次查看时间和闹钟；12 月排班表发我后就能续上。";
       }
 
-      var tmLine = document.getElementById("tomorrowLine");
+      // ===== Tomorrow card (below today) =====
+      document.getElementById("tomorrowDate").innerHTML = "明天 · <strong>"+fmtDate(tomorrow)+"</strong>";
+      var tmShift = document.getElementById("tomorrowShift");
+      var tmTimes = document.getElementById("tomorrowTimes");
+      var tmBadge = document.getElementById("tomorrowBadge");
+      var tmAlarms = document.getElementById("tomorrowAlarms");
+      var tmNote = document.getElementById("tomorrowNote");
       if (tomorrowCode){
-        var ts = SHIFTS[tomorrowCode];
-        tmLine.innerHTML = "<span>明天 "+(tomorrow.getMonth()+1)+" 月 "+tomorrow.getDate()+" 日 ("+WEEK[tomorrow.getDay()]+")</span><span><b>"+ts.label+"</b>"+(tomorrowCode==="DO"?" · 休息":" · "+ts.start+" 上班 · 闹钟 "+ts.alarms[0].t+" 起")+"</span>";
+        var ts2 = SHIFTS[tomorrowCode];
+        tmBadge.textContent = tomorrowCode==="DO" ? "明天休息" : "明天上班";
+        tmBadge.className = "badge "+tomorrowCode;
+        if (tomorrowCode==="DO"){
+          tmShift.innerHTML = "休息 <small>DO 例假</small>";
+          tmTimes.innerHTML = "明天不用上班";
+          tmAlarms.innerHTML = "";
+          tmNote.textContent = "明天休息，不用设闹钟。";
+        } else {
+          tmShift.innerHTML = ts2.label.replace(" ","&nbsp;") + " <small>"+(tomorrowCode==="M"?"夜班":"")+"</small>";
+          tmTimes.innerHTML = "<span>上班</span> "+ts2.start+" &nbsp;→&nbsp; <span>下班</span> "+ts2.end+(ts2.nextDay?' <span>(次日)</span>':"");
+          tmAlarms.innerHTML = ts2.alarms.map(function(a){
+            return '<div class="alarm-chip"><span>⏰ '+a.label+'</span><b>'+a.t+'</b></div>';
+          }).join("");
+          tmNote.textContent = tomorrowCode==="M" ? "明晚 23:00 上班，后天 08:00 下班。今晚记得提前开好 M 班闹钟组（21:20 起）。" :
+            tomorrowCode==="C" ? "明天 07:00 上班。今晚记得开好 C 班闹钟组（05:30 起），早点睡。" :
+            "明天 14:30 上班，23:30 下班。闹钟 12:50 起，记得提前开好 J1 班闹钟组。";
+        }
       } else {
-        tmLine.innerHTML = "<span>明天 "+(tomorrow.getMonth()+1)+" 月 "+tomorrow.getDate()+" 日</span><span>不在 11 月排班表内</span>";
+        tmBadge.textContent = "不在 11 月排班内";
+        tmBadge.className = "badge DO";
+        tmShift.innerHTML = "暂无排班";
+        tmTimes.innerHTML = "明天不在 2026 年 11 月排班表范围内";
+        tmAlarms.innerHTML = "";
+        tmNote.textContent = "12 月排班表发我后就能续上。";
       }
 
       // ===== Detail panel =====
@@ -375,8 +425,8 @@
       // initial detail = today
       renderDetail(selectedCode, selectedDay);
 
-      // ===== Widget =====
-      document.getElementById("wDate").textContent = fmtDate(now);
+      // ===== Widget: top = today, bottom = tomorrow =====
+      document.getElementById("wDate").textContent = "今天 · "+(now.getMonth()+1)+"月"+now.getDate()+"日 "+WEEK[now.getDay()];
       if (todayCode){
         var ws = SHIFTS[todayCode];
         document.getElementById("wShift").textContent = todayCode==="DO" ? "休息 DO" : ws.label;
@@ -386,6 +436,13 @@
         document.getElementById("wShift").textContent = "暂无排班";
         document.getElementById("wTimes").textContent = "不在 11 月排班内";
         document.getElementById("wAlarms").textContent = "";
+      }
+      var wTm = document.getElementById("wTomorrow");
+      if (tomorrowCode){
+        var wts = SHIFTS[tomorrowCode];
+        wTm.innerHTML = "<span>明天 "+(tomorrow.getMonth()+1)+"/"+tomorrow.getDate()+"</span> "+(tomorrowCode==="DO" ? "休息 DO · 不用上班" : wts.label+" · "+wts.start+" 上班");
+      } else {
+        wTm.innerHTML = "<span>明天 "+(tomorrow.getMonth()+1)+"/"+tomorrow.getDate()+"</span> 暂无排班";
       }
     </script>
   </body>
