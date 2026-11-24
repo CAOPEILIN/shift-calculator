@@ -60,6 +60,13 @@
       html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);}
       body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif;-webkit-font-smoothing:antialiased;}
       .wrap{max-width:680px;margin:0 auto;padding:16px 16px 40px;}
+      /* ---------- Person switcher ---------- */
+      .person-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+      .person-label{font-size:14px;font-weight:700;color:var(--muted);}
+      .person-list{display:flex;gap:8px;flex-wrap:wrap;}
+      .person-btn{border:2px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:8px 20px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;transition:border-color .15s, background .15s;}
+      .person-btn:active{transform:scale(.97);}
+      .person-btn.active{border-color:var(--accent);background:var(--do-bg);color:var(--do-ink);}
       /* ---------- Today hero ---------- */
       .today-card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px;overflow:hidden;position:relative;}
       .today-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
@@ -217,6 +224,12 @@
 
     <!-- App view -->
     <main id="app" class="wrap">
+      <!-- Person switcher (top) -->
+      <div class="person-bar">
+        <span class="person-label">看谁的班次</span>
+        <div class="person-list" id="personList" role="group" aria-label="选择人名"></div>
+      </div>
+
       <!-- Today (top) -->
       <section class="today-card" aria-label="今天的班次">
         <div class="today-top">
@@ -243,7 +256,7 @@
 
       <!-- Calendar -->
       <h2>2026 年 11 月整月排班</h2>
-      <p class="sub">按你 11 月的排班表排的。点任意一天，下方详情会跳到那天；带绿框的是今天。</p>
+      <p class="sub" id="calSub">按你 11 月的排班表排的。点任意一天，下方详情会跳到那天；带绿框的是今天。</p>
       <div class="cal">
         <div class="cal-head">
           <b>11 月</b>
@@ -258,10 +271,10 @@
         <div class="cal-grid" id="calGrid"></div>
       </div>
       <div class="stats">
-        <div class="stat"><b>14</b><span>C 班 · 天</span></div>
-        <div class="stat"><b>7</b><span>J1 班 · 天</span></div>
-        <div class="stat"><b>3</b><span>M 班 · 天</span></div>
-        <div class="stat"><b>6</b><span>DO 休息 · 天</span></div>
+        <div class="stat"><b id="statC">14</b><span>C 班 · 天</span></div>
+        <div class="stat"><b id="statJ1">7</b><span>J1 班 · 天</span></div>
+        <div class="stat"><b id="statM">3</b><span>M 班 · 天</span></div>
+        <div class="stat"><b id="statDO">6</b><span>DO 休息 · 天</span></div>
       </div>
 
       <!-- Picker -->
@@ -287,7 +300,8 @@
     </main>
 
     <script>
-      // ===== Data: 2026年11月排班 =====
+      // ===== Data =====
+      // 班次定义（所有人共用）：班次时间与闹钟。
       var SHIFTS = {
         C:  { label: "C 班", short: "C",  start: "07:00", end: "16:00", nextDay: false, hours: "9 小时",
               alarms: [ {t:"05:30", label:"起床", hint:"第一个闹钟"}, {t:"05:40", label:"洗漱", hint:"10 分钟后"}, {t:"05:55", label:"出门", hint:"离上班 1 小时 05 分"} ] },
@@ -297,16 +311,26 @@
               alarms: [ {t:"21:20", label:"起床", hint:"第一个闹钟"}, {t:"21:40", label:"洗漱", hint:"20 分钟后"}, {t:"21:55", label:"出门", hint:"离上班 1 小时 05 分"} ] },
         DO: { label: "DO 例假", short: "DO", start: null, end: null, nextDay: false, hours: "休息日", alarms: [] }
       };
-      // index = 日期 1..30
-      var NOV = [null,
-        "C","DO","C","C","C","C","J1","J1","J1","DO",
-        "J1","J1","J1","J1","DO","DO","C","C","C","C",
-        "C","C","M","M","M","DO","DO","C","C","C"
+      // ===== 人员名单：以后加同事，只往 PEOPLE 里加一条数据即可，版式不用动 =====
+      // schedule 是这个人 2026 年 11 月的排班，index = 日期 1..30（第 0 位留空）。
+      var PEOPLE = [
+        { name: "佩琳",
+          schedule: [null,
+            "C","DO","C","C","C","C","J1","J1","J1","DO",
+            "J1","J1","J1","J1","DO","DO","C","C","C","C",
+            "C","C","M","M","M","DO","DO","C","C","C"
+          ] }
       ];
+      var currentPerson = 0; // 默认选中第一个人（佩琳）
       var WEEK = ["周日","周一","周二","周三","周四","周五","周六"];
 
       function shiftOfDate(d){
-        if (d.getFullYear()===2026 && d.getMonth()===10) return NOV[d.getDate()];
+        if (d.getFullYear()===2026 && d.getMonth()===10) return PEOPLE[currentPerson].schedule[d.getDate()];
+        return null;
+      }
+      // 小组件固定显示第一个人（佩琳）的班次
+      function shiftOfDateFirst(d){
+        if (d.getFullYear()===2026 && d.getMonth()===10) return PEOPLE[0].schedule[d.getDate()];
         return null;
       }
       function fmtDate(d){
@@ -314,11 +338,13 @@
       }
 
       var now = new Date();
-      var todayCode = shiftOfDate(now);
       var tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1);
-      var tomorrowCode = shiftOfDate(tomorrow);
+      var todayCode = null;
+      var tomorrowCode = null;
 
       // ===== Today card =====
+      function renderToday(){
+      todayCode = shiftOfDate(now);
       document.getElementById("todayDate").innerHTML = "今天 · <strong>"+fmtDate(now)+"</strong>";
       var tShift = document.getElementById("todayShift");
       var tTimes = document.getElementById("todayTimes");
@@ -352,8 +378,11 @@
         tTimes.innerHTML = "当前日期不在 2026 年 11 月排班表范围内";
         tNote.textContent = "下面可以手动点班次查看时间和闹钟；12 月排班表发我后就能续上。";
       }
+      }
 
       // ===== Tomorrow card (below today) =====
+      function renderTomorrow(){
+      tomorrowCode = shiftOfDate(tomorrow);
       document.getElementById("tomorrowDate").innerHTML = "明天 · <strong>"+fmtDate(tomorrow)+"</strong>";
       var tmShift = document.getElementById("tomorrowShift");
       var tmTimes = document.getElementById("tomorrowTimes");
@@ -386,6 +415,7 @@
         tmTimes.innerHTML = "明天不在 2026 年 11 月排班表范围内";
         tmAlarms.innerHTML = "";
         tmNote.textContent = "12 月排班表发我后就能续上。";
+      }
       }
 
       // ===== Detail panel =====
@@ -431,34 +461,70 @@
         });
       });
 
-      // ===== Calendar: Nov 2026 starts on Sunday =====
+      // ===== Calendar + stats: Nov 2026 starts on Sunday =====
       var calGrid = document.getElementById("calGrid");
-      var html = "";
-      // Nov 1 2026 = Sunday -> 0 blanks if week starts Sunday
-      var firstDow = new Date(2026,10,1).getDay(); // 0
-      for (var i=0;i<firstDow;i++) html += '<span class="day empty"></span>';
-      for (var d=1; d<=30; d++){
-        var code = NOV[d];
-        var isToday = (now.getFullYear()===2026 && now.getMonth()===10 && now.getDate()===d);
-        html += '<button type="button" class="day '+code+(isToday?" is-today":"")+'" data-day="'+d+'" aria-label="11月'+d+'日 '+SHIFTS[code].label+'"><span class="d">'+d+'</span><span class="s">'+SHIFTS[code].short+'</span></button>';
-      }
-      calGrid.innerHTML = html;
-      calGrid.querySelectorAll(".day[data-day]").forEach(function(el){
-        el.addEventListener("click", function(){
-          var dayNum = parseInt(el.getAttribute("data-day"),10);
-          selectedDay = dayNum;
-          renderDetail(NOV[dayNum], dayNum);
-          document.querySelector(".detail").scrollIntoView({behavior:"smooth", block:"nearest"});
+      function renderCalendar(){
+        var schedule = PEOPLE[currentPerson].schedule;
+        document.getElementById("calSub").textContent = "按"+PEOPLE[currentPerson].name+" 11 月的排班表排的。点任意一天，下方详情会跳到那天；带绿框的是今天。";
+        var html = "";
+        // Nov 1 2026 = Sunday -> 0 blanks if week starts Sunday
+        var firstDow = new Date(2026,10,1).getDay(); // 0
+        for (var i=0;i<firstDow;i++) html += '<span class="day empty"></span>';
+        var counts = { C:0, J1:0, M:0, DO:0 };
+        for (var d=1; d<=30; d++){
+          var code = schedule[d];
+          counts[code]++;
+          var isToday = (now.getFullYear()===2026 && now.getMonth()===10 && now.getDate()===d);
+          html += '<button type="button" class="day '+code+(isToday?" is-today":"")+'" data-day="'+d+'" aria-label="11月'+d+'日 '+SHIFTS[code].label+'"><span class="d">'+d+'</span><span class="s">'+SHIFTS[code].short+'</span></button>';
+        }
+        calGrid.innerHTML = html;
+        document.getElementById("statC").textContent = counts.C;
+        document.getElementById("statJ1").textContent = counts.J1;
+        document.getElementById("statM").textContent = counts.M;
+        document.getElementById("statDO").textContent = counts.DO;
+        calGrid.querySelectorAll(".day[data-day]").forEach(function(el){
+          el.addEventListener("click", function(){
+            var dayNum = parseInt(el.getAttribute("data-day"),10);
+            selectedDay = dayNum;
+            renderDetail(PEOPLE[currentPerson].schedule[dayNum], dayNum);
+            document.querySelector(".detail").scrollIntoView({behavior:"smooth", block:"nearest"});
+          });
         });
+      }
+
+      // ===== Person switcher + full re-render =====
+      function renderPerson(){
+        renderToday();
+        renderTomorrow();
+        renderCalendar();
+        selectedCode = todayCode || "C";
+        selectedDay = (now.getFullYear()===2026 && now.getMonth()===10) ? now.getDate() : null;
+        renderDetail(selectedCode, selectedDay);
+        document.querySelectorAll(".person-btn").forEach(function(b, i){
+          b.classList.toggle("active", i===currentPerson);
+        });
+      }
+      var personList = document.getElementById("personList");
+      PEOPLE.forEach(function(p, i){
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "person-btn";
+        btn.textContent = p.name;
+        btn.addEventListener("click", function(){
+          if (currentPerson !== i){ currentPerson = i; renderPerson(); }
+        });
+        personList.appendChild(btn);
       });
 
-      // initial detail = today
-      renderDetail(selectedCode, selectedDay);
+      // initial render = default person （佩琳）, detail = today
+      renderPerson();
 
       // ===== Widget: top = today, bottom = tomorrow (+ week strip on large) =====
       var wSize = document.documentElement.getAttribute("data-hatch-size") || "";
       var wCompact = (wSize==="small" || wSize==="watch" || wSize==="watch_round");
       document.getElementById("wDate").textContent = "今天 · "+(now.getMonth()+1)+"月"+now.getDate()+"日 "+WEEK[now.getDay()];
+      todayCode = shiftOfDateFirst(now);
+      tomorrowCode = shiftOfDateFirst(tomorrow);
       if (todayCode){
         var ws = SHIFTS[todayCode];
         document.getElementById("wShift").textContent = todayCode==="DO" ? "休息 DO" : ws.label;
@@ -486,7 +552,7 @@
       var weekHtml = "";
       for (var wi=0; wi<7; wi++){
         var wd = new Date(now.getFullYear(), now.getMonth(), now.getDate()+wi);
-        var wc = shiftOfDate(wd);
+        var wc = shiftOfDateFirst(wd);
         weekHtml += '<div class="w-day '+(wc||"")+(wi===0?" is-today":"")+'">' +
           '<span class="wd">'+(wi===0?"今天":"周"+WD1[wd.getDay()])+'</span>' +
           '<span class="wn">'+wd.getDate()+'</span>' +
