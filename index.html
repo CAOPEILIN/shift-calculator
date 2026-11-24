@@ -475,7 +475,7 @@
       var wTmA = document.getElementById("wTmAlarms");
       if (tomorrowCode){
         var wts = SHIFTS[tomorrowCode];
-        wTm.innerHTML = "<span>明天 "+(tomorrow.getMonth()+1)+"/"+tomorrow.getDate()+"</span> "+(tomorrowCode==="DO" ? "休息 DO · 不用上班" : wts.label+" · "+wts.start+" 上班");
+        wTm.innerHTML = "<span>明天 "+(tomorrow.getMonth()+1)+"/"+tomorrow.getDate()+"</span> "+(tomorrowCode==="DO" ? (wCompact ? "休息 DO" : "休息 DO · 不用上班") : wCompact ? wts.short+" 班 "+wts.start : wts.label+" · "+wts.start+" 上班");
         wTmA.textContent = tomorrowCode==="DO" ? "明天休息，不用设闹钟" : "明天闹钟 "+wts.alarms.map(function(a){return a.t;}).join(" · ");
       } else {
         wTm.innerHTML = "<span>明天 "+(tomorrow.getMonth()+1)+"/"+tomorrow.getDate()+"</span> 暂无排班";
