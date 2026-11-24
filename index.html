@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <script id="hatch-space-target">
+    (() => {
+      const params = new URLSearchParams(location.hash.slice(1));
+      const root = document.documentElement;
+      if (params.get("hatch_target") === "tv") root.dataset.hatchTarget = "tv";
+      const widget = params.get("hatch_view") === "widget";
+      root.dataset.hatchView = widget ? "widget" : "app";
+      if (widget) {
+        root.dataset.hatchWidget = params.get("hatch_widget") || "default";
+        root.dataset.hatchInstance = params.get("hatch_instance") || "";
+        const sizes = ["small", "medium", "large", "watch", "watch_round"];
+        root.dataset.hatchSize = sizes.includes(params.get("hatch_size")) ? params.get("hatch_size") : "small";
+        const style = document.createElement("style");
+        style.textContent = 'html[data-hatch-view="widget"], html[data-hatch-view="widget"] body { background: transparent; }';
+        document.head.prepend(style);
+      }
+    })();
+  </script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>排班计算器</title>
+    <style>
+      button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) { min-height: 2rem; }
+      * { box-sizing: border-box; }
+      :root{
+        --bg:#f4f5f3;
+        --surface:#ffffff;
+        --surface2:#eceee9;
+        --ink:#1a1e1c;
+        --muted:#5c665f;
+        --line:#dde1da;
+        --c:#b45309; --c-bg:#fef3c7; --c-ink:#78350f;
+        --j:#0e7490; --j-bg:#e0f2f7; --j-ink:#164e63;
+        --m:#1e3a5f; --m-bg:#dbe7f5; --m-ink:#172f4d;
+        --do:#5b7a5e; --do-bg:#e3efe4; --do-ink:#2f4a33;
+        --accent:#1f6f4a;
+        --radius:16px;
+      }
+      @media (prefers-color-scheme: dark){
+        :root{
+          --bg:#141716;
+          --surface:#1e2220;
+          --surface2:#262b28;
+          --ink:#eef1ee;
+          --muted:#a7b0a8;
+          --line:#343a36;
+          --c:#fbbf24; --c-bg:#3a2c10; --c-ink:#fde68a;
+          --j:#38bdf8; --j-bg:#12303d; --j-ink:#bae6fd;
+          --m:#93c5fd; --m-bg:#1c2f4a; --m-ink:#dbeafe;
+          --do:#86c98f; --do-bg:#223626; --do-ink:#bbf7c9;
+          --accent:#4ade80;
+        }
+      }
+      html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);}
+      body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif;-webkit-font-smoothing:antialiased;}
+      .wrap{max-width:680px;margin:0 auto;padding:16px 16px 40px;}
+      /* ---------- Today hero ---------- */
+      .today-card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px;overflow:hidden;position:relative;}
+      .today-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
+      .today-date{font-size:15px;color:var(--muted);font-weight:600;letter-spacing:.02em;}
+      .today-date strong{color:var(--ink);font-size:17px;}
+      .badge{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;padding:6px 12px;border-radius:999px;white-space:nowrap;}
+      .badge.C{background:var(--c-bg);color:var(--c-ink);}
+      .badge.J1{background:var(--j-bg);color:var(--j-ink);}
+      .badge.M{background:var(--m-bg);color:var(--m-ink);}
+      .badge.DO{background:var(--do-bg);color:var(--do-ink);}
+      .today-shift{font-size:56px;line-height:1;font-weight:800;letter-spacing:-.02em;margin:14px 0 4px;font-variant-numeric:tabular-nums;}
+      .today-shift small{font-size:22px;font-weight:700;color:var(--muted);}
+      .today-times{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;}
+      .today-times span{color:var(--muted);font-weight:500;font-size:15px;}
+      .today-alarms{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;}
+      .alarm-chip{flex:1;min-width:96px;background:var(--surface2);border-radius:12px;padding:10px 12px;text-align:center;}
+      .alarm-chip b{display:block;font-size:20px;font-variant-numeric:tabular-nums;line-height:1.2;}
+      .alarm-chip span{font-size:12px;color:var(--muted);font-weight:600;}
+      .tomorrow{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);font-size:14px;color:var(--muted);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+      .tomorrow b{color:var(--ink);}
+      .out-note{margin-top:10px;font-size:13px;color:var(--muted);line-height:1.5;}
+      /* ---------- Shift picker ---------- */
+      h2{font-size:17px;margin:26px 0 4px;font-weight:800;}
+      .sub{font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.5;}
+      .shift-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+      @media(max-width:520px){.shift-grid{grid-template-columns:repeat(2,1fr);}}
+      .shift-btn{border:2px solid var(--line);background:var(--surface);border-radius:var(--radius);padding:14px 10px 12px;cursor:pointer;text-align:left;color:var(--ink);min-height:88px;display:flex;flex-direction:column;justify-content:space-between;gap:8px;transition:border-color .15s, transform .1s;}
+      .shift-btn:active{transform:scale(.98);}
+      .shift-btn .name{font-size:24px;font-weight:800;line-height:1;}
+      .shift-btn .time{font-size:13px;color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums;line-height:1.4;}
+      .shift-btn[data-shift="C"] .name{color:var(--c);}
+      .shift-btn[data-shift="J1"] .name{color:var(--j);}
+      .shift-btn[data-shift="M"] .name{color:var(--m);}
+      .shift-btn[data-shift="DO"] .name{color:var(--do);}
+      .shift-btn.active[data-shift="C"]{border-color:var(--c);background:var(--c-bg);}
+      .shift-btn.active[data-shift="J1"]{border-color:var(--j);background:var(--j-bg);}
+      .shift-btn.active[data-shift="M"]{border-color:var(--m);background:var(--m-bg);}
+      .shift-btn.active[data-shift="DO"]{border-color:var(--do);background:var(--do-bg);}
+      /* ---------- Detail ---------- */
+      .detail{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px;margin-top:14px;}
+      .detail-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+      .detail-title{font-size:26px;font-weight:800;}
+      .detail-title em{font-style:normal;font-size:14px;color:var(--muted);font-weight:600;margin-left:8px;}
+      .detail-hours{font-size:13px;font-weight:700;color:var(--muted);background:var(--surface2);padding:5px 10px;border-radius:999px;}
+      .time-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin:18px 0 6px;text-align:center;}
+      .time-box b{display:block;font-size:38px;line-height:1;font-variant-numeric:tabular-nums;font-weight:800;}
+      .time-box span{font-size:13px;color:var(--muted);font-weight:700;}
+      .time-arrow{font-size:22px;color:var(--muted);}
+      .next-day{font-size:12px;color:var(--muted);font-weight:700;}
+      .alarm-title{font-size:14px;font-weight:800;margin:20px 0 10px;display:flex;align-items:center;gap:8px;}
+      .alarm-title::after{content:"";flex:1;height:1px;background:var(--line);}
+      .alarm-list{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+      @media(max-width:480px){.alarm-list{grid-template-columns:1fr;}}
+      .alarm-item{border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;align-items:center;gap:12px;}
+      @media(min-width:481px){.alarm-item{flex-direction:column;text-align:center;gap:4px;padding:16px 10px;}}
+      .alarm-num{width:28px;height:28px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;}
+      .alarm-item b{font-size:26px;font-variant-numeric:tabular-nums;line-height:1.1;}
+      .alarm-item span{font-size:13px;color:var(--muted);font-weight:700;}
+      .alarm-item small{font-size:12px;color:var(--muted);display:block;}
+      .rest-box{text-align:center;padding:18px 8px 6px;}
+      .rest-box .big{font-size:28px;font-weight:800;margin-bottom:6px;}
+      .rest-box p{color:var(--muted);font-size:14px;line-height:1.6;margin:0;}
+      /* ---------- Calendar ---------- */
+      .cal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+      .cal-head b{font-size:16px;}
+      .legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted);font-weight:600;}
+      .legend i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:4px;vertical-align:-1px;}
+      .cal{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:14px;}
+      .cal-week{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:12px;color:var(--muted);font-weight:700;padding:4px 0 8px;}
+      .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+      .day{border:none;border-radius:12px;padding:8px 2px 7px;cursor:pointer;background:var(--surface2);color:var(--ink);min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-family:inherit;}
+      .day .d{font-size:16px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;}
+      .day .s{font-size:11px;font-weight:800;line-height:1;}
+      .day.empty{background:transparent;cursor:default;min-height:52px;}
+      .day.C{background:var(--c-bg);} .day.C .s{color:var(--c);}
+      .day.J1{background:var(--j-bg);} .day.J1 .s{color:var(--j);}
+      .day.M{background:var(--m-bg);} .day.M .s{color:var(--m);}
+      .day.DO{background:var(--do-bg);} .day.DO .s{color:var(--do);}
+      .day.is-today{outline:2.5px solid var(--accent);outline-offset:-1px;}
+      .day.selected{box-shadow:inset 0 0 0 2px var(--ink);}
+      .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px;}
+      .stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center;}
+      .stat b{display:block;font-size:22px;line-height:1.1;font-variant-numeric:tabular-nums;}
+      .stat span{font-size:12px;color:var(--muted);font-weight:700;}
+      footer{margin-top:22px;font-size:12px;color:var(--muted);line-height:1.7;text-align:center;}
+      /* ---------- Widget ---------- */
+      #widget{display:none;}
+      html[data-hatch-view="widget"] #app{display:none;}
+      html[data-hatch-view="widget"] #widget{display:flex;}
+      html[data-hatch-view="widget"] body{background:transparent;}
+      #widget{width:100%;height:100vh;align-items:center;justify-content:center;padding:10px;}
+      .w-card{width:100%;height:100%;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px;display:flex;flex-direction:column;justify-content:center;overflow:hidden;}
+      .w-date{font-size:12px;color:var(--muted);font-weight:700;}
+      .w-shift{font-size:44px;font-weight:800;line-height:1.05;}
+      .w-times{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;}
+      .w-alarms{font-size:12px;color:var(--muted);font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums;line-height:1.5;}
+      html[data-hatch-size="small"] .w-shift{font-size:36px;}
+      html[data-hatch-size="small"] .w-alarms{display:none;}
+      html[data-hatch-size="watch"] .w-card, html[data-hatch-size="watch_round"] .w-card{background:#000;border-color:#222;color:#fff;}
+      html[data-hatch-size="watch"] .w-date, html[data-hatch-size="watch_round"] .w-date{color:#aaa;}
+      html[data-hatch-size="watch_round"] .w-card{border-radius:50%;text-align:center;align-items:center;padding:22px;}
+    </style>
+  </head>
+  <body>
+    <!-- Widget view -->
+    <section id="widget" aria-label="今日班次小组件">
+      <div class="w-card">
+        <div class="w-date" id="wDate">—</div>
+        <div class="w-shift" id="wShift">—</div>
+        <div class="w-times" id="wTimes">—</div>
+        <div class="w-alarms" id="wAlarms">—</div>
+      </div>
+    </section>
+
+    <!-- App view -->
+    <main id="app" class="wrap">
+      <!-- Today -->
+      <section class="today-card" aria-label="今天的班次">
+        <div class="today-top">
+          <div class="today-date" id="todayDate">—</div>
+          <span class="badge" id="todayBadge">—</span>
+        </div>
+        <div class="today-shift" id="todayShift">—</div>
+        <div class="today-times" id="todayTimes">—</div>
+        <div class="today-alarms" id="todayAlarms"></div>
+        <div class="tomorrow" id="tomorrowLine"></div>
+        <p class="out-note" id="todayNote"></p>
+      </section>
+
+      <!-- Picker -->
+      <h2>点班次，看时间</h2>
+      <p class="sub">点下面的班次，下方立刻显示上班、下班和你要开的三个闹钟。点日历里的日期也一样。</p>
+      <div class="shift-grid" role="group" aria-label="选择班次">
+        <button type="button" class="shift-btn" data-shift="C"><span class="name">C 班</span><span class="time">07:00 – 16:00<br>闹钟 05:30 起</span></button>
+        <button type="button" class="shift-btn" data-shift="J1"><span class="name">J1 班</span><span class="time">14:30 – 23:30<br>闹钟 12:50 起</span></button>
+        <button type="button" class="shift-btn" data-shift="M"><span class="name">M 班</span><span class="time">23:00 – 次日 08:00<br>闹钟 21:20 起</span></button>
+        <button type="button" class="shift-btn" data-shift="DO"><span class="name">DO</span><span class="time">例假休息<br>不用设闹钟</span></button>
+      </div>
+
+      <!-- Detail -->
+      <section class="detail" aria-label="班次详情" aria-live="polite">
+        <div class="detail-head">
+          <div class="detail-title" id="detailTitle">—</div>
+          <span class="detail-hours" id="detailHours">—</span>
+        </div>
+        <div id="detailBody"></div>
+      </section>
+
+      <!-- Calendar -->
+      <h2>2026 年 11 月整月排班</h2>
+      <p class="sub">按你 11 月的排班表排的。点任意一天，下方详情会跳到那天；带绿框的是今天。</p>
+      <div class="cal">
+        <div class="cal-head">
+          <b>11 月</b>
+          <div class="legend">
+            <span><i style="background:var(--c)"></i>C 早班</span>
+            <span><i style="background:var(--j)"></i>J1 午班</span>
+            <span><i style="background:var(--m)"></i>M 夜班</span>
+            <span><i style="background:var(--do)"></i>DO 休息</span>
+          </div>
+        </div>
+        <div class="cal-week"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+        <div class="cal-grid" id="calGrid"></div>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>14</b><span>C 班 · 天</span></div>
+        <div class="stat"><b>7</b><span>J1 班 · 天</span></div>
+        <div class="stat"><b>3</b><span>M 班 · 天</span></div>
+        <div class="stat"><b>6</b><span>DO 休息 · 天</span></div>
+      </div>
+
+      <footer>班次时间：C 07:00–16:00 · J1 14:30–23:30 · M 23:00–次日 08:00<br>闹钟为你手机时钟里现有的三段式：起床 / 洗漱 / 出门。12 月排班出来后，把新表发我就能换上。</footer>
+    </main>
+
+    <script>
+      // ===== Data: 2026年11月排班（曹佩琳） =====
+      var SHIFTS = {
+        C:  { label: "C 班", short: "C",  start: "07:00", end: "16:00", nextDay: false, hours: "9 小时",
+              alarms: [ {t:"05:30", label:"起床", hint:"第一个闹钟"}, {t:"05:40", label:"洗漱", hint:"10 分钟后"}, {t:"05:55", label:"出门", hint:"离上班 1 小时 05 分"} ] },
+        J1: { label: "J1 班", short: "J1", start: "14:30", end: "23:30", nextDay: false, hours: "9 小时",
+              alarms: [ {t:"12:50", label:"起床", hint:"第一个闹钟"}, {t:"13:10", label:"洗漱", hint:"20 分钟后"}, {t:"13:30", label:"出门", hint:"离上班 1 小时"} ] },
+        M:  { label: "M 班", short: "M",  start: "23:00", end: "08:00", nextDay: true, hours: "9 小时 · 通宵夜班",
+              alarms: [ {t:"21:20", label:"起床", hint:"第一个闹钟"}, {t:"21:40", label:"洗漱", hint:"20 分钟后"}, {t:"21:55", label:"出门", hint:"离上班 1 小时 05 分"} ] },
+        DO: { label: "DO 例假", short: "DO", start: null, end: null, nextDay: false, hours: "休息日", alarms: [] }
+      };
+      // index = 日期 1..30
+      var NOV = [null,
+        "C","DO","C","C","C","C","J1","J1","J1","DO",
+        "J1","J1","J1","J1","DO","DO","C","C","C","C",
+        "C","C","M","M","M","DO","DO","C","C","C"
+      ];
+      var WEEK = ["周日","周一","周二","周三","周四","周五","周六"];
+
+      function shiftOfDate(d){
+        if (d.getFullYear()===2026 && d.getMonth()===10) return NOV[d.getDate()];
+        return null;
+      }
+      function fmtDate(d){
+        return d.getFullYear()+" 年 "+(d.getMonth()+1)+" 月 "+d.getDate()+" 日 · "+WEEK[d.getDay()];
+      }
+
+      var now = new Date();
+      var todayCode = shiftOfDate(now);
+      var tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1);
+      var tomorrowCode = shiftOfDate(tomorrow);
+
+      // ===== Today card =====
+      document.getElementById("todayDate").innerHTML = "今天 · <strong>"+fmtDate(now)+"</strong>";
+      var tShift = document.getElementById("todayShift");
+      var tTimes = document.getElementById("todayTimes");
+      var tBadge = document.getElementById("todayBadge");
+      var tAlarms = document.getElementById("todayAlarms");
+      var tNote = document.getElementById("todayNote");
+
+      if (todayCode){
+        var s = SHIFTS[todayCode];
+        tBadge.textContent = todayCode==="DO" ? "今天休息" : "今天上班";
+        tBadge.className = "badge "+todayCode;
+        if (todayCode==="DO"){
+          tShift.innerHTML = "休息 <small>DO 例假</small>";
+          tTimes.innerHTML = "今天不用上班";
+          tAlarms.innerHTML = "";
+          tNote.textContent = "闹钟可以关掉，好好休息。";
+        } else {
+          tShift.innerHTML = s.label.replace(" ","&nbsp;") + " <small>"+(todayCode==="M"?"夜班":"")+"</small>";
+          tTimes.innerHTML = "<span>上班</span> "+s.start+" &nbsp;→&nbsp; <span>下班</span> "+s.end+(s.nextDay?' <span>(次日)</span>':"");
+          tAlarms.innerHTML = s.alarms.map(function(a){
+            return '<div class="alarm-chip"><span>⏰ '+a.label+'</span><b>'+a.t+'</b></div>';
+          }).join("");
+          tNote.textContent = todayCode==="M" ? "今晚 23:00 上班，明早 08:00 下班。出门闹钟 21:55，记得提前开好 M 班闹钟组。" :
+            todayCode==="C" ? "明早 07:00 上班。出门闹钟 05:55，今晚早点睡，记得开 C 班闹钟组。" :
+            "今天 14:30 上班，23:30 下班。出门闹钟 13:30，上午可以多睡一会儿。";
+        }
+      } else {
+        tBadge.textContent = "不在 11 月排班内";
+        tBadge.className = "badge DO";
+        tShift.innerHTML = "暂无排班";
+        tTimes.innerHTML = "当前日期不在 2026 年 11 月排班表范围内";
+        tNote.textContent = "下面可以手动点班次查看时间和闹钟；12 月排班表发我后就能续上。";
+      }
+
+      var tmLine = document.getElementById("tomorrowLine");
+      if (tomorrowCode){
+        var ts = SHIFTS[tomorrowCode];
+        tmLine.innerHTML = "<span>明天 "+(tomorrow.getMonth()+1)+" 月 "+tomorrow.getDate()+" 日 ("+WEEK[tomorrow.getDay()]+")</span><span><b>"+ts.label+"</b>"+(tomorrowCode==="DO"?" · 休息":" · "+ts.start+" 上班 · 闹钟 "+ts.alarms[0].t+" 起")+"</span>";
+      } else {
+        tmLine.innerHTML = "<span>明天 "+(tomorrow.getMonth()+1)+" 月 "+tomorrow.getDate()+" 日</span><span>不在 11 月排班表内</span>";
+      }
+
+      // ===== Detail panel =====
+      var detailTitle = document.getElementById("detailTitle");
+      var detailHours = document.getElementById("detailHours");
+      var detailBody = document.getElementById("detailBody");
+      var selectedCode = todayCode || "C";
+      var selectedDay = (now.getFullYear()===2026 && now.getMonth()===10) ? now.getDate() : null;
+
+      function renderDetail(code, dayNum){
+        selectedCode = code;
+        var s = SHIFTS[code];
+        document.querySelectorAll(".shift-btn").forEach(function(b){
+          b.classList.toggle("active", b.getAttribute("data-shift")===code);
+        });
+        document.querySelectorAll(".day[data-day]").forEach(function(el){
+          el.classList.toggle("selected", dayNum && parseInt(el.getAttribute("data-day"),10)===dayNum);
+        });
+        var dateText = dayNum ? "11 月 "+dayNum+" 日 · "+WEEK[new Date(2026,10,dayNum).getDay()] : "任意一天";
+        detailTitle.innerHTML = s.label + "<em>"+dateText+"</em>";
+        detailHours.textContent = s.hours;
+        if (code==="DO"){
+          detailBody.innerHTML = '<div class="rest-box"><div class="big">🌙 休息日，不用设闹钟</div><p>这天是 DO 例假。把闹钟组关掉，睡到自然醒。<br>记得看一眼明天的班次，提前开好对应闹钟。</p></div>';
+          return;
+        }
+        detailBody.innerHTML =
+          '<div class="time-row">' +
+            '<div class="time-box"><span>上班</span><b>'+s.start+'</b></div>' +
+            '<div class="time-arrow">→</div>' +
+            '<div class="time-box"><span>下班'+(s.nextDay?' <span class="next-day">次日</span>':"")+'</span><b>'+s.end+'</b></div>' +
+          '</div>' +
+          '<div class="alarm-title">⏰ 三个闹钟 · 记得开这一组</div>' +
+          '<div class="alarm-list">' +
+            s.alarms.map(function(a,i){
+              return '<div class="alarm-item"><span class="alarm-num">'+(i+1)+'</span><div><b>'+a.t+'</b> <span>'+a.label+'</span><small>'+a.hint+'</small></div></div>';
+            }).join("") +
+          '</div>';
+      }
+
+      document.querySelectorAll(".shift-btn").forEach(function(btn){
+        btn.addEventListener("click", function(){
+          renderDetail(btn.getAttribute("data-shift"), null);
+        });
+      });
+
+      // ===== Calendar: Nov 2026 starts on Sunday =====
+      var calGrid = document.getElementById("calGrid");
+      var html = "";
+      // Nov 1 2026 = Sunday -> 0 blanks if week starts Sunday
+      var firstDow = new Date(2026,10,1).getDay(); // 0
+      for (var i=0;i<firstDow;i++) html += '<span class="day empty"></span>';
+      for (var d=1; d<=30; d++){
+        var code = NOV[d];
+        var isToday = (now.getFullYear()===2026 && now.getMonth()===10 && now.getDate()===d);
+        html += '<button type="button" class="day '+code+(isToday?" is-today":"")+'" data-day="'+d+'" aria-label="11月'+d+'日 '+SHIFTS[code].label+'"><span class="d">'+d+'</span><span class="s">'+SHIFTS[code].short+'</span></button>';
+      }
+      calGrid.innerHTML = html;
+      calGrid.querySelectorAll(".day[data-day]").forEach(function(el){
+        el.addEventListener("click", function(){
+          var dayNum = parseInt(el.getAttribute("data-day"),10);
+          selectedDay = dayNum;
+          renderDetail(NOV[dayNum], dayNum);
+          document.querySelector(".detail").scrollIntoView({behavior:"smooth", block:"nearest"});
+        });
+      });
+
+      // initial detail = today
+      renderDetail(selectedCode, selectedDay);
+
+      // ===== Widget =====
+      document.getElementById("wDate").textContent = fmtDate(now);
+      if (todayCode){
+        var ws = SHIFTS[todayCode];
+        document.getElementById("wShift").textContent = todayCode==="DO" ? "休息 DO" : ws.label;
+        document.getElementById("wTimes").textContent = todayCode==="DO" ? "今天不用上班" : ws.start+" 上班 → "+ws.end+(ws.nextDay?" (次日)":"")+" 下班";
+        document.getElementById("wAlarms").textContent = todayCode==="DO" ? "不用设闹钟" : "闹钟 "+ws.alarms.map(function(a){return a.t+" "+a.label;}).join(" · ");
+      } else {
+        document.getElementById("wShift").textContent = "暂无排班";
+        document.getElementById("wTimes").textContent = "不在 11 月排班内";
+        document.getElementById("wAlarms").textContent = "";
+      }
+    </script>
+  </body>
+</html>
