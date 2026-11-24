@@ -81,10 +81,10 @@
       .tomorrow{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);font-size:14px;color:var(--muted);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;}
       .tomorrow b{color:var(--ink);}
       .out-note{margin-top:10px;font-size:13px;color:var(--muted);line-height:1.5;}
-      /* ---------- Tomorrow card (below today) ---------- */
-      .tomorrow-card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px;margin-top:12px;overflow:hidden;}
-      .tomorrow-shift{font-size:40px;line-height:1;font-weight:800;letter-spacing:-.02em;margin:12px 0 4px;font-variant-numeric:tabular-nums;}
-      .tomorrow-shift small{font-size:18px;font-weight:700;color:var(--muted);}
+      /* ---------- Tomorrow card (below today) — same size as today ---------- */
+      .tomorrow-card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px;margin-top:12px;overflow:hidden;position:relative;}
+      .tomorrow-shift{font-size:56px;line-height:1;font-weight:800;letter-spacing:-.02em;margin:14px 0 4px;font-variant-numeric:tabular-nums;}
+      .tomorrow-shift small{font-size:22px;font-weight:700;color:var(--muted);}
       /* ---------- Shift picker ---------- */
       h2{font-size:17px;margin:26px 0 4px;font-weight:800;}
       .sub{font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.5;}
@@ -205,7 +205,7 @@
           <div class="today-date" id="tomorrowDate">—</div>
           <span class="badge" id="tomorrowBadge">—</span>
         </div>
-        <div class="tomorrow-shift" id="tomorrowShift">—</div>
+        <div class="today-shift tomorrow-shift" id="tomorrowShift">—</div>
         <div class="today-times" id="tomorrowTimes">—</div>
         <div class="today-alarms" id="tomorrowAlarms"></div>
         <p class="out-note" id="tomorrowNote"></p>
