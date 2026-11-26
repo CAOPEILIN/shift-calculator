@@ -66,6 +66,11 @@
       body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif;-webkit-font-smoothing:antialiased;}
       .wrap{max-width:680px;margin:0 auto;padding:16px 16px 40px;}
 
+      /* ---------- Month switch ---------- */
+      .month-switch{display:flex;background:var(--surface2);border:1px solid var(--line);border-radius:999px;padding:4px;margin-bottom:14px;}
+      .m-btn{flex:1;border:none;background:transparent;border-radius:999px;padding:9px 0;font-size:15px;font-weight:800;color:var(--muted);cursor:pointer;font-family:inherit;min-height:2.5rem;}
+      .m-btn.active{background:var(--surface);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.14);}
+
       /* ---------- Today / Tomorrow cards ---------- */
       .day-card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px;overflow:hidden;}
       .day-card + .day-card{margin-top:12px;}
@@ -123,13 +128,13 @@
       .day.selected{box-shadow:inset 0 0 0 2px var(--ink);}
 
       /* ---------- Stats ---------- */
-      .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:14px;}
+      .stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:14px;}
       @media(max-width:520px){.stats{grid-template-columns:repeat(3,1fr);}}
       .stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 6px;text-align:center;}
       .stat b{display:block;font-size:22px;line-height:1.1;font-variant-numeric:tabular-nums;}
       .stat span{font-size:12px;color:var(--muted);font-weight:700;}
       .stat.A b{color:var(--a);} .stat.B b{color:var(--b);} .stat.C b{color:var(--c);}
-      .stat.H b{color:var(--h);} .stat.OFF b{color:var(--off);}
+      .stat.D b{color:var(--d);} .stat.H b{color:var(--h);} .stat.OFF b{color:var(--off);}
       .stat-line{margin-top:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 16px;text-align:center;font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;}
       .stat-line span{color:var(--muted);font-weight:600;}
 
@@ -214,7 +219,7 @@
       html[data-hatch-size="watch"] .w-tomorrow, html[data-hatch-size="watch_round"] .w-tomorrow{font-size:11px;line-height:1.4;}
       html[data-hatch-size="watch_round"] .w-card{border-radius:50%;text-align:center;align-items:center;padding:24px;}
       @media print{
-        .shift-grid, .week-strip{display:none;}
+        .shift-grid, .week-strip, .month-switch{display:none;}
         body{background:#fff;}
       }
     </style>
@@ -236,6 +241,12 @@
 
     <!-- App view -->
     <main id="app" class="wrap">
+      <!-- Month switch -->
+      <div class="month-switch" role="group" aria-label="切换月份">
+        <button type="button" class="m-btn" data-month="11">11 月</button>
+        <button type="button" class="m-btn" data-month="12">12 月</button>
+      </div>
+
       <!-- Today -->
       <section class="day-card" aria-label="今天的班次">
         <div class="card-top">
@@ -260,19 +271,20 @@
 
       <!-- Next 7 days -->
       <h2>接下来 7 天</h2>
-      <p class="sub">从今天起一周的班次，一眼看完。</p>
+      <p class="sub" id="weekSub">从今天起一周的班次，一眼看完。</p>
       <div class="week-strip" id="weekStrip"></div>
 
       <!-- Calendar -->
-      <h2>2026 年 11 月整月排班</h2>
-      <p class="sub">按 11 月份考勤表排的。点任意一天，下方详情会跳到那天；带绿框的是今天。</p>
+      <h2 id="calTitle">2026 年 11 月整月排班</h2>
+      <p class="sub" id="calSub">按 11 月份考勤表排的。点任意一天，下方详情会跳到那天；带绿框的是今天。</p>
       <div class="cal">
         <div class="cal-head">
-          <b>11 月</b>
+          <b id="calMonthName">11 月</b>
           <div class="legend">
             <span><i style="background:var(--a)"></i>A 早班</span>
             <span><i style="background:var(--b)"></i>B 中班</span>
             <span><i style="background:var(--c)"></i>C 夜班</span>
+            <span><i style="background:var(--d)"></i>D 班</span>
             <span><i style="background:var(--h)"></i>H 班</span>
             <span><i style="background:var(--off)"></i>休</span>
           </div>
@@ -284,6 +296,7 @@
         <div class="stat A"><b id="statA">0</b><span>A 班 · 天</span></div>
         <div class="stat B"><b id="statB">0</b><span>B 班 · 天</span></div>
         <div class="stat C"><b id="statC">0</b><span>C 班 · 天</span></div>
+        <div class="stat D"><b id="statD">0</b><span>D 班 · 天</span></div>
         <div class="stat H"><b id="statH">0</b><span>H 班 · 天</span></div>
         <div class="stat OFF"><b id="statOFF">0</b><span>休息 · 天</span></div>
       </div>
@@ -296,8 +309,8 @@
         <button type="button" class="shift-btn" data-shift="A"><span class="name">A 班</span><span class="time">08:00 – 16:00<br>早班</span></button>
         <button type="button" class="shift-btn" data-shift="B"><span class="name">B 班</span><span class="time">16:00 – 24:00<br>中班</span></button>
         <button type="button" class="shift-btn" data-shift="C"><span class="name">C 班</span><span class="time">24:00 – 次日 08:00<br>夜班</span></button>
-        <button type="button" class="shift-btn" data-shift="D"><span class="name">D 班</span><span class="time">09:00 – 17:00<br>本月未排</span></button>
-        <button type="button" class="shift-btn" data-shift="H"><span class="name">H 班</span><span class="time">10:00 – 18:00<br>本月只有 28 日</span></button>
+        <button type="button" class="shift-btn" data-shift="D"><span class="name">D 班</span><span class="time">09:00 – 17:00<br><span id="dBtnNote">本月未排</span></span></button>
+        <button type="button" class="shift-btn" data-shift="H"><span class="name">H 班</span><span class="time">10:00 – 18:00<br><span id="hBtnNote">本月只有 28 日</span></span></button>
         <button type="button" class="shift-btn" data-shift="OFF"><span class="name">休</span><span class="time">休息日<br>不用上班</span></button>
       </div>
 
@@ -310,7 +323,7 @@
         <div id="detailBody"></div>
       </section>
 
-      <footer>班次时间：A 08:00–16:00 · B 16:00–24:00 · C 24:00–次日 08:00 · D 09:00–17:00 · H 10:00–18:00<br>数据来自 2026 年 11 月份考勤表；12 月排班出来后，换上新表即可。</footer>
+      <footer>班次时间：A 08:00–16:00 · B 16:00–24:00 · C 24:00–次日 08:00 · D 09:00–17:00 · H 10:00–18:00<br>数据来自 2026 年 11 月、12 月份考勤表。</footer>
     </main>
 
     <script>
@@ -323,31 +336,65 @@
         C:   { label: "C 班", short: "C", start: "24:00", end: "08:00", nextDay: true, hours: "8 小时 · 夜班", kind: "夜班",
                note: "夜班：24:00 上班，第二天早上 8 点下班，白天记得补觉。" },
         D:   { label: "D 班", short: "D", start: "09:00", end: "17:00", nextDay: false, hours: "8 小时", kind: "白班",
-               note: "早上 9 点上班，下午 5 点下班。本月没有排到 D 班。" },
+               note: "早上 9 点上班，下午 5 点下班。" },
         H:   { label: "H 班", short: "H", start: "10:00", end: "18:00", nextDay: false, hours: "8 小时", kind: "白班",
-               note: "上午 10 点上班，下午 6 点下班。本月只有 11 月 28 日一天。" },
+               note: "上午 10 点上班，下午 6 点下班。" },
         OFF: { label: "休息", short: "休", start: null, end: null, nextDay: false, hours: "休息日", kind: "休息",
                note: "这天休息，不用上班。" }
       };
-      // ===== 2026 年 11 月排班（下标 = 日期 1..30，第 0 位留空）=====
-      var SCHEDULE = [null,
-        "B","B","OFF","B","B","B","B","B","B","B",
-        "B","A","A","A","OFF","OFF","C","C","C","C",
-        "C","C","C","C","C","OFF","B","H","A","A"
-      ];
+      // ===== 每月排班（下标 = 日期，第 0 位留空）=====
+      var MONTH_DATA = {
+        11: { monthIndex: 10, days: 30, schedule: [null,
+          "B","B","OFF","B","B","B","B","B","B","B",
+          "B","A","A","A","OFF","OFF","C","C","C","C",
+          "C","C","C","C","C","OFF","B","H","A","A"
+        ]},
+        12: { monthIndex: 11, days: 31, schedule: [null,
+          "B","B","OFF","A","A","C","C","C","C","C",
+          "C","C","C","C","OFF","B","B","B","B","B",
+          "B","B","B","B","B","D","A","OFF","OFF","B","B"
+        ]}
+      };
+      // D / H 班按月不同的说明
+      var MONTH_NOTES = {
+        11: { D: "早上 9 点上班，下午 5 点下班。本月没有排到 D 班。",
+              H: "上午 10 点上班，下午 6 点下班。本月只有 11 月 28 日一天。" },
+        12: { D: "早上 9 点上班，下午 5 点下班。本月只有 12 月 26 日一天。",
+              H: "上午 10 点上班，下午 6 点下班。本月没有排到 H 班。" }
+      };
+      var PICKER_NOTES = {
+        11: { D: "本月未排", H: "本月只有 28 日" },
+        12: { D: "本月只有 26 日", H: "本月未排" }
+      };
       var WEEK = ["周日","周一","周二","周三","周四","周五","周六"];
       var WD1 = ["日","一","二","三","四","五","六"];
 
+      var now = new Date();
+      var tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1);
+      // 默认月份：按打开当天所在的月份选
+      var viewMonth = (now.getFullYear()===2026 && now.getMonth()===11) ? 12 : 11;
+
+      function monthDataOf(d){
+        if (d.getFullYear()!==2026) return null;
+        return MONTH_DATA[d.getMonth()+1] || null;
+      }
       function shiftOfDate(d){
-        if (d.getFullYear()===2026 && d.getMonth()===10) return SCHEDULE[d.getDate()];
-        return null;
+        var md = monthDataOf(d);
+        return md ? md.schedule[d.getDate()] : null;
+      }
+      function noteFor(code, monthNum){
+        var mn = MONTH_NOTES[monthNum];
+        return (mn && mn[code]) || SHIFTS[code].note;
       }
       function fmtDate(d){
         return d.getFullYear()+" 年 "+(d.getMonth()+1)+" 月 "+d.getDate()+" 日 · "+WEEK[d.getDay()];
       }
+      function isCurrentView(){
+        return now.getFullYear()===2026 && (now.getMonth()+1)===viewMonth;
+      }
       function nextOffText(fromDate){
-        // 从 fromDate 的次日起，找本月内下一个休息日
-        for (var i=1;i<=30;i++){
+        // 从 fromDate 的次日起，找排班内下一个休息日
+        for (var i=1;i<=40;i++){
           var d = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate()+i);
           if (shiftOfDate(d)==="OFF") return "下一个休息日是 "+(d.getMonth()+1)+" 月 "+d.getDate()+" 日（"+WEEK[d.getDay()]+(i===1?"，就是明天":("，还有 "+i+" 天"))+"）。";
           if (shiftOfDate(d)===null) break;
@@ -355,85 +402,115 @@
         return "";
       }
 
-      var now = new Date();
-      var tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1);
-
-      function fillCard(prefix, date, isToday){
+      // ===== 今天 / 明天（或所看月份头两天）卡片 =====
+      function fillCard(prefix, date, label){
         var code = shiftOfDate(date);
-        document.getElementById(prefix+"Date").innerHTML = (isToday?"今天":"明天")+" · <strong>"+fmtDate(date)+"</strong>";
+        document.getElementById(prefix+"Date").innerHTML = (label ? label+" · " : "") + "<strong>"+fmtDate(date)+"</strong>";
         var shiftEl = document.getElementById(prefix+"Shift");
         var timesEl = document.getElementById(prefix+"Times");
         var badgeEl = document.getElementById(prefix+"Badge");
         var noteEl = document.getElementById(prefix+"Note");
         if (!code){
-          badgeEl.textContent = "不在 11 月排班内";
+          badgeEl.textContent = "暂无排班";
           badgeEl.className = "badge OFF";
           shiftEl.innerHTML = "暂无排班";
-          timesEl.innerHTML = "这一天不在 2026 年 11 月排班表范围内";
-          noteEl.textContent = "12 月排班表出来后就能续上。";
+          timesEl.innerHTML = "这一天不在 11 月、12 月排班表范围内";
+          noteEl.textContent = "";
           return code;
         }
         var s = SHIFTS[code];
-        badgeEl.textContent = code==="OFF" ? (isToday?"今天休息":"明天休息") : (isToday?"今天上班":"明天上班");
-        badgeEl.className = "badge "+code;
         if (code==="OFF"){
+          badgeEl.textContent = label ? label+"休息" : "休息";
+          badgeEl.className = "badge OFF";
           shiftEl.innerHTML = "休息 <small>休</small>";
-          timesEl.innerHTML = isToday ? "今天不用上班" : "明天不用上班";
-          if (isToday){
+          timesEl.innerHTML = label==="今天" ? "今天不用上班" : label==="明天" ? "明天不用上班" : "这天不用上班";
+          if (label==="今天"){
             var tmr = shiftOfDate(tomorrow);
             noteEl.textContent = tmr ? ("好好休息。明天是 "+SHIFTS[tmr].label+(tmr==="OFF"?"，继续休息。":"，"+SHIFTS[tmr].start+" 上班。")) : "好好休息。";
           } else {
             var after = new Date(date.getFullYear(), date.getMonth(), date.getDate()+1);
             var ac = shiftOfDate(after);
-            noteEl.textContent = ac ? ("休息一天，后天 "+(ac==="OFF"?"继续休息":SHIFTS[ac].label+" "+SHIFTS[ac].start+" 上班")+"。") : "好好休息。";
+            noteEl.textContent = ac ? ("休息一天，第二天 "+(ac==="OFF"?"继续休息":SHIFTS[ac].label+"，"+SHIFTS[ac].start+" 上班")+"。") : "好好休息。";
           }
         } else {
+          badgeEl.textContent = label ? label+"上班" : "上班";
+          badgeEl.className = "badge "+code;
           shiftEl.innerHTML = s.label.replace(" ","&nbsp;")+" <small>"+s.kind+"</small>";
           timesEl.innerHTML = "<span>上班</span> "+s.start+" &nbsp;→&nbsp; <span>下班</span> "+s.end+(s.nextDay?' <span>(次日)</span>':"");
-          noteEl.textContent = s.note + (isToday ? " "+nextOffText(date) : "");
+          noteEl.textContent = noteFor(code, date.getMonth()+1) + (label==="今天" ? " "+nextOffText(date) : "");
         }
         return code;
       }
-      var todayCode = fillCard("today", now, true);
-      fillCard("tomorrow", tomorrow, false);
 
       // ===== 接下来 7 天 =====
-      var stripHtml = "";
-      for (var wi=0; wi<7; wi++){
-        var wd = new Date(now.getFullYear(), now.getMonth(), now.getDate()+wi);
-        var wc = shiftOfDate(wd);
-        stripHtml += '<div class="wcell '+(wc||"")+(wi===0?" is-today":"")+'">' +
-          '<span class="wd">'+(wi===0?"今天":"周"+WD1[wd.getDay()])+'</span>' +
-          '<span class="wn">'+wd.getDate()+'</span>' +
-          '<span class="ws">'+(wc?SHIFTS[wc].short:"—")+'</span></div>';
+      function renderWeekStrip(){
+        var md = MONTH_DATA[viewMonth];
+        var start = isCurrentView() ? now : new Date(2026, md.monthIndex, 1);
+        document.getElementById("weekSub").textContent = isCurrentView()
+          ? "从今天起一周的班次，一眼看完。"
+          : "从 "+viewMonth+" 月 1 日起一周的班次，一眼看完。";
+        var html = "";
+        for (var wi=0; wi<7; wi++){
+          var wd = new Date(start.getFullYear(), start.getMonth(), start.getDate()+wi);
+          var wc = shiftOfDate(wd);
+          var isT = wd.getFullYear()===now.getFullYear() && wd.getMonth()===now.getMonth() && wd.getDate()===now.getDate();
+          html += '<div class="wcell '+(wc||"")+(isT?" is-today":"")+'">' +
+            '<span class="wd">'+(isT?"今天":"周"+WD1[wd.getDay()])+'</span>' +
+            '<span class="wn">'+wd.getDate()+'</span>' +
+            '<span class="ws">'+(wc?SHIFTS[wc].short:"—")+'</span></div>';
+        }
+        document.getElementById("weekStrip").innerHTML = html;
       }
-      document.getElementById("weekStrip").innerHTML = stripHtml;
 
-      // ===== 日历 + 统计（2026 年 11 月 1 日是周日）=====
-      var counts = { A:0, B:0, C:0, D:0, H:0, OFF:0 };
-      var calHtml = "";
-      var firstDow = new Date(2026,10,1).getDay();
-      for (var bi=0; bi<firstDow; bi++) calHtml += '<span class="day empty"></span>';
-      for (var d=1; d<=30; d++){
-        var cc = SCHEDULE[d];
-        counts[cc]++;
-        var isT = (now.getFullYear()===2026 && now.getMonth()===10 && now.getDate()===d);
-        calHtml += '<button type="button" class="day '+cc+(isT?" is-today":"")+'" data-day="'+d+'" aria-label="11月'+d+'日 '+SHIFTS[cc].label+'"><span class="dn">'+d+'</span><span class="ds">'+SHIFTS[cc].short+'</span></button>';
+      // ===== 日历 + 统计 =====
+      function renderCalendar(){
+        var md = MONTH_DATA[viewMonth];
+        document.getElementById("calTitle").textContent = "2026 年 "+viewMonth+" 月整月排班";
+        document.getElementById("calSub").textContent = "按 "+viewMonth+" 月份考勤表排的。点任意一天，下方详情会跳到那天"+(isCurrentView()?"；带绿框的是今天":"")+"。";
+        document.getElementById("calMonthName").textContent = viewMonth+" 月";
+        var counts = { A:0, B:0, C:0, D:0, H:0, OFF:0 };
+        var html = "";
+        var firstDow = new Date(2026, md.monthIndex, 1).getDay();
+        for (var bi=0; bi<firstDow; bi++) html += '<span class="day empty"></span>';
+        for (var d=1; d<=md.days; d++){
+          var cc = md.schedule[d];
+          counts[cc]++;
+          var isT = (now.getFullYear()===2026 && now.getMonth()===md.monthIndex && now.getDate()===d);
+          html += '<button type="button" class="day '+cc+(isT?" is-today":"")+'" data-day="'+d+'" aria-label="'+viewMonth+'月'+d+'日 '+SHIFTS[cc].label+'"><span class="dn">'+d+'</span><span class="ds">'+SHIFTS[cc].short+'</span></button>';
+        }
+        document.getElementById("calGrid").innerHTML = html;
+        document.getElementById("statA").textContent = counts.A;
+        document.getElementById("statB").textContent = counts.B;
+        document.getElementById("statC").textContent = counts.C;
+        document.getElementById("statD").textContent = counts.D;
+        document.getElementById("statH").textContent = counts.H;
+        document.getElementById("statOFF").textContent = counts.OFF;
+        var workDays = md.days - counts.OFF;
+        document.getElementById("statLine").innerHTML = "本月上班 <b>"+workDays+" 天</b> <span>·</span> 休息 <b>"+counts.OFF+" 天</b> <span>·</span> 合计 <b>"+(workDays*8)+" 小时</b> <span>（每班 8 小时）</span>";
+        document.querySelectorAll(".day[data-day]").forEach(function(el){
+          el.addEventListener("click", function(){
+            var dayNum = parseInt(el.getAttribute("data-day"),10);
+            renderDetail(MONTH_DATA[viewMonth].schedule[dayNum], dayNum);
+            document.querySelector(".detail").scrollIntoView({behavior:"smooth", block:"nearest"});
+          });
+        });
       }
-      document.getElementById("calGrid").innerHTML = calHtml;
-      document.getElementById("statA").textContent = counts.A;
-      document.getElementById("statB").textContent = counts.B;
-      document.getElementById("statC").textContent = counts.C;
-      document.getElementById("statH").textContent = counts.H;
-      document.getElementById("statOFF").textContent = counts.OFF;
-      var workDays = 30 - counts.OFF;
-      document.getElementById("statLine").innerHTML = "本月上班 <b>"+workDays+" 天</b> <span>·</span> 休息 <b>"+counts.OFF+" 天</b> <span>·</span> 合计 <b>"+(workDays*8)+" 小时</b> <span>（每班 8 小时）</span>";
 
       // ===== 详情 =====
       var detailTitle = document.getElementById("detailTitle");
       var detailHours = document.getElementById("detailHours");
       var detailBody = document.getElementById("detailBody");
+      function neighborHtml(dayNum){
+        if (!dayNum) return "";
+        var md = MONTH_DATA[viewMonth];
+        var prev = md.schedule[dayNum-1], next = md.schedule[dayNum+1];
+        var html = '<div class="neighbor">';
+        html += '<div><span>前一天 '+(dayNum-1>=1?(viewMonth+"/"+(dayNum-1)):"")+'</span>'+(prev?SHIFTS[prev].label+(prev==="OFF"?"":" "+SHIFTS[prev].start):"—")+'</div>';
+        html += '<div><span>后一天 '+(dayNum+1<=md.days?(viewMonth+"/"+(dayNum+1)):"")+'</span>'+(next?SHIFTS[next].label+(next==="OFF"?"":" "+SHIFTS[next].start):"—")+'</div>';
+        return html + '</div>';
+      }
       function renderDetail(code, dayNum){
+        var md = MONTH_DATA[viewMonth];
         var s = SHIFTS[code];
         document.querySelectorAll(".shift-btn").forEach(function(b){
           b.classList.toggle("active", b.getAttribute("data-shift")===code);
@@ -441,13 +518,13 @@
         document.querySelectorAll(".day[data-day]").forEach(function(el){
           el.classList.toggle("selected", !!dayNum && parseInt(el.getAttribute("data-day"),10)===dayNum);
         });
-        var dateText = dayNum ? "11 月 "+dayNum+" 日 · "+WEEK[new Date(2026,10,dayNum).getDay()] : "班次时间";
+        var dateText = dayNum ? viewMonth+" 月 "+dayNum+" 日 · "+WEEK[new Date(2026, md.monthIndex, dayNum).getDay()] : "班次时间";
         detailTitle.innerHTML = s.label + "<em>"+dateText+"</em>";
         detailHours.textContent = s.hours;
         if (code==="OFF"){
           var extra = "";
           if (dayNum){
-            var nx = new Date(2026,10,dayNum+1);
+            var nx = new Date(2026, md.monthIndex, dayNum+1);
             var nc = shiftOfDate(nx);
             extra = nc ? ("<br>第二天 "+(nc==="OFF"?"继续休息":SHIFTS[nc].label+"，"+SHIFTS[nc].start+" 上班")+"。") : "";
           }
@@ -460,31 +537,42 @@
             '<div class="time-arrow">→</div>' +
             '<div class="time-box"><span>下班'+(s.nextDay?' <span>次日</span>':"")+'</span><b>'+s.end+'</b></div>' +
           '</div>' +
-          '<p class="detail-note">'+s.note+'</p>' + neighborHtml(dayNum);
-      }
-      function neighborHtml(dayNum){
-        if (!dayNum) return "";
-        var prev = SCHEDULE[dayNum-1], next = SCHEDULE[dayNum+1];
-        var html = '<div class="neighbor">';
-        html += '<div><span>前一天 '+(dayNum-1>=1?("11/"+(dayNum-1)):"")+'</span>'+(prev?SHIFTS[prev].label+(prev==="OFF"?"":" "+SHIFTS[prev].start):"—")+'</div>';
-        html += '<div><span>后一天 '+(dayNum+1<=30?("11/"+(dayNum+1)):"")+'</span>'+(next?SHIFTS[next].label+(next==="OFF"?"":" "+SHIFTS[next].start):"—")+'</div>';
-        return html + '</div>';
+          '<p class="detail-note">'+noteFor(code, viewMonth)+'</p>' + neighborHtml(dayNum);
       }
       document.querySelectorAll(".shift-btn").forEach(function(btn){
         btn.addEventListener("click", function(){ renderDetail(btn.getAttribute("data-shift"), null); });
       });
-      document.querySelectorAll(".day[data-day]").forEach(function(el){
-        el.addEventListener("click", function(){
-          var dayNum = parseInt(el.getAttribute("data-day"),10);
-          renderDetail(SCHEDULE[dayNum], dayNum);
-          document.querySelector(".detail").scrollIntoView({behavior:"smooth", block:"nearest"});
+
+      // ===== 整页渲染（按当前所看月份）=====
+      function renderAll(){
+        document.querySelectorAll(".m-btn").forEach(function(b){
+          b.classList.toggle("active", parseInt(b.getAttribute("data-month"),10)===viewMonth);
+        });
+        document.getElementById("dBtnNote").textContent = PICKER_NOTES[viewMonth].D;
+        document.getElementById("hBtnNote").textContent = PICKER_NOTES[viewMonth].H;
+        var md = MONTH_DATA[viewMonth];
+        var tc;
+        if (isCurrentView()){
+          tc = fillCard("today", now, "今天");
+          fillCard("tomorrow", tomorrow, "明天");
+        } else {
+          tc = fillCard("today", new Date(2026, md.monthIndex, 1), "");
+          fillCard("tomorrow", new Date(2026, md.monthIndex, 2), "");
+        }
+        renderWeekStrip();
+        renderCalendar();
+        if (isCurrentView()) renderDetail(tc || "B", now.getDate());
+        else renderDetail(md.schedule[1], 1);
+      }
+      document.querySelectorAll(".m-btn").forEach(function(btn){
+        btn.addEventListener("click", function(){
+          viewMonth = parseInt(btn.getAttribute("data-month"),10);
+          renderAll();
         });
       });
-      // 默认详情 = 今天
-      var initDay = (now.getFullYear()===2026 && now.getMonth()===10) ? now.getDate() : null;
-      renderDetail(todayCode || "B", initDay);
+      renderAll();
 
-      // ===== 小组件：今天 + 明天 + 一周 =====
+      // ===== 小组件：今天 + 明天 + 一周（始终按真实日期）=====
       var wSize = document.documentElement.getAttribute("data-hatch-size") || "";
       var wCompact = (wSize==="small" || wSize==="watch" || wSize==="watch_round");
       document.getElementById("wDate").textContent = "今天 · "+(now.getMonth()+1)+"月"+now.getDate()+"日 "+WEEK[now.getDay()];
@@ -496,7 +584,7 @@
           wCompact ? ws.start+" → "+ws.end+(ws.nextDay?" 次日":"") : ws.start+" 上班 → "+ws.end+(ws.nextDay?" (次日)":"")+" 下班";
       } else {
         document.getElementById("wShift").textContent = "暂无排班";
-        document.getElementById("wTimes").textContent = "不在 11 月排班内";
+        document.getElementById("wTimes").textContent = "不在排班表内";
       }
       var wTm = document.getElementById("wTomorrow");
       if (wTmCode){
