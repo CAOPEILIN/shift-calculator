@@ -71,6 +71,25 @@
       .m-btn{flex:1;border:none;background:transparent;border-radius:999px;padding:9px 0;font-size:15px;font-weight:800;color:var(--muted);cursor:pointer;font-family:inherit;min-height:2.5rem;}
       .m-btn.active{background:var(--surface);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.14);}
 
+      /* ---------- Person switch ---------- */
+      .person-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+      .p-btn{flex:1 1 30%;border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 4px;font-size:15px;font-weight:800;color:var(--muted);cursor:pointer;font-family:inherit;min-height:2.75rem;}
+      .p-btn.active{border-color:var(--accent);color:var(--accent);background:var(--off-bg);}
+
+      /* ---------- First-run name picker ---------- */
+      #gate{display:none;}
+      .gate-card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:24px 20px;}
+      .gate-card h1{font-size:22px;margin:0 0 6px;font-weight:800;}
+      .gate-card p{font-size:14px;color:var(--muted);line-height:1.6;margin:0 0 18px;}
+      .gate-list{display:flex;flex-direction:column;gap:10px;}
+      .gate-btn{border:1.5px solid var(--line);background:var(--surface2);border-radius:14px;padding:16px;font-size:18px;font-weight:800;color:var(--ink);cursor:pointer;font-family:inherit;min-height:3.5rem;text-align:center;}
+      .gate-btn:active{border-color:var(--accent);}
+
+      /* ---------- No data for this person/month ---------- */
+      #noData{display:none;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:28px 20px;text-align:center;}
+      #noData .big{font-size:20px;font-weight:800;margin-bottom:8px;}
+      #noData p{color:var(--muted);font-size:14px;line-height:1.6;margin:0;}
+
       /* ---------- Today / Tomorrow cards ---------- */
       .day-card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px;overflow:hidden;}
       .day-card + .day-card{margin-top:12px;}
@@ -241,12 +260,31 @@
 
     <!-- App view -->
     <main id="app" class="wrap">
+      <!-- 第一次打开：先选名字 -->
+      <section id="gate" aria-label="请选择你的名字">
+        <div class="gate-card">
+          <h1>请选择你的名字</h1>
+          <p>点一下你的名字，这台手机会记住，以后打开就直接显示你的班表。</p>
+          <div class="gate-list" id="gateList"></div>
+        </div>
+      </section>
+
+      <div id="mainUI">
+      <!-- Person switch -->
+      <div class="person-row" role="group" aria-label="切换人员" id="personRow"></div>
+
       <!-- Month switch -->
       <div class="month-switch" role="group" aria-label="切换月份">
         <button type="button" class="m-btn" data-month="11">11 月</button>
         <button type="button" class="m-btn" data-month="12">12 月</button>
       </div>
 
+      <div id="noData" role="note">
+        <div class="big">这个月还没有这个人的排班</div>
+        <p id="noDataText"></p>
+      </div>
+
+      <div id="scheduleWrap">
       <!-- Today -->
       <section class="day-card" aria-label="今天的班次">
         <div class="card-top">
@@ -322,6 +360,8 @@
         </div>
         <div id="detailBody"></div>
       </section>
+      </div>
+      </div>
 
       <footer>班次时间：A 08:00–16:00 · B 16:00–24:00 · C 24:00–次日 08:00 · D 09:00–17:00 · H 10:00–18:00<br>数据来自 2026 年 11 月、12 月份考勤表。</footer>
     </main>
@@ -342,49 +382,101 @@
         OFF: { label: "休息", short: "休", start: null, end: null, nextDay: false, hours: "休息日", kind: "休息",
                note: "这天休息，不用上班。" }
       };
-      // ===== 每月排班（下标 = 日期，第 0 位留空）=====
-      var MONTH_DATA = {
-        11: { monthIndex: 10, days: 30, schedule: [null,
-          "B","B","OFF","B","B","B","B","B","B","B",
-          "B","A","A","A","OFF","OFF","C","C","C","C",
-          "C","C","C","C","C","OFF","B","H","A","A"
+      // ===== 每人每月排班（下标 = 日期，第 0 位留空；11 月只有李怡姗有数据）=====
+      var PEOPLE_ORDER = ["蔡锦熙","黄品苗","李怡姗","张佳琪","陈婷婷"];
+      var PEOPLE = {
+        "蔡锦熙": { 12: [null,
+          "A","A","A","A","A","A","A","A","A","A",
+          "A","A","A","A","A","OFF","OFF","OFF","A","A",
+          "A","OFF","OFF","A","A","A","B","A","A","A","A"
         ]},
-        12: { monthIndex: 11, days: 31, schedule: [null,
-          "B","B","OFF","A","A","C","C","C","C","C",
-          "C","C","C","C","OFF","B","B","B","B","B",
-          "B","B","B","B","B","D","A","OFF","OFF","B","B"
+        "黄品苗": { 12: [null,
+          "OFF","B","B","B","B","B","B","B","B","B",
+          "B","B","OFF","B","C","C","C","C","C","C",
+          "C","C","C","C","OFF","B","B","B","B","B","B"
+        ]},
+        "李怡姗": {
+          11: [null,
+            "B","B","OFF","B","B","B","B","B","B","B",
+            "B","A","A","A","OFF","OFF","C","C","C","C",
+            "C","C","C","C","C","OFF","B","H","A","A"
+          ],
+          12: [null,
+            "B","B","OFF","A","A","C","C","C","C","C",
+            "C","C","C","C","OFF","B","B","B","B","B",
+            "B","B","B","B","B","D","A","OFF","OFF","B","B"
+          ]
+        },
+        "张佳琪": { 12: [null,
+          "C","C","C","C","C","OFF","D","A","A","A",
+          "A","A","B","B","B","A","A","A","B","B",
+          "B","A","A","B","B","B","OFF","B","B","OFF","OFF"
+        ]},
+        "陈婷婷": { 12: [null,
+          "B","OFF","B","B","B","B","B","B","B","B",
+          "B","B","B","OFF","B","B","B","B","D","OFF",
+          "OFF","B","B","C","C","C","C","C","C","C","C"
         ]}
       };
-      // D / H 班按月不同的说明
-      var MONTH_NOTES = {
-        11: { D: "早上 9 点上班，下午 5 点下班。本月没有排到 D 班。",
-              H: "上午 10 点上班，下午 6 点下班。本月只有 11 月 28 日一天。" },
-        12: { D: "早上 9 点上班，下午 5 点下班。本月只有 12 月 26 日一天。",
-              H: "上午 10 点上班，下午 6 点下班。本月没有排到 H 班。" }
-      };
-      var PICKER_NOTES = {
-        11: { D: "本月未排", H: "本月只有 28 日" },
-        12: { D: "本月只有 26 日", H: "本月未排" }
-      };
+      var MONTH_META = { 11: { monthIndex: 10, days: 30 }, 12: { monthIndex: 11, days: 31 } };
+      function monthDataOf(person, monthNum){
+        var sched = PEOPLE[person] && PEOPLE[person][monthNum];
+        if (!sched) return null;
+        var meta = MONTH_META[monthNum];
+        return { monthIndex: meta.monthIndex, days: meta.days, schedule: sched };
+      }
+      function personHasMonth(person, monthNum){
+        return !!(PEOPLE[person] && PEOPLE[person][monthNum]);
+      }
+      // ===== 本机记住上次选的人（只存在这台手机，不同步）=====
+      var STORE_KEY = "paiban-person-v1";
+      function loadPerson(){
+        try { var v = localStorage.getItem(STORE_KEY); return PEOPLE[v] ? v : null; } catch(e){ return null; }
+      }
+      function savePerson(name){
+        try { localStorage.setItem(STORE_KEY, name); } catch(e){}
+      }
+      var currentPerson = loadPerson();
       var WEEK = ["周日","周一","周二","周三","周四","周五","周六"];
       var WD1 = ["日","一","二","三","四","五","六"];
 
       var now = new Date();
       var tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1);
-      // 默认月份：按打开当天所在的月份选
-      var viewMonth = (now.getFullYear()===2026 && now.getMonth()===11) ? 12 : 11;
-
-      function monthDataOf(d){
-        if (d.getFullYear()!==2026) return null;
-        return MONTH_DATA[d.getMonth()+1] || null;
+      // 默认月份：优先打开当天所在月份，前提是这个人那个月有排班；否则跳到他有排班的月份
+      function defaultMonthFor(person){
+        var realMonth = (now.getFullYear()===2026) ? now.getMonth()+1 : null;
+        if (realMonth && personHasMonth(person, realMonth)) return realMonth;
+        if (personHasMonth(person, 12)) return 12;
+        return 11;
       }
+      var viewMonth = currentPerson ? defaultMonthFor(currentPerson) : 11;
+
       function shiftOfDate(d){
-        var md = monthDataOf(d);
+        if (!currentPerson || d.getFullYear()!==2026) return null;
+        var md = monthDataOf(currentPerson, d.getMonth()+1);
         return md ? md.schedule[d.getDate()] : null;
       }
+      function daysWith(code, monthNum){
+        var md = monthDataOf(currentPerson, monthNum);
+        var days = [];
+        if (md) for (var i=1;i<=md.days;i++) if (md.schedule[i]===code) days.push(i);
+        return days;
+      }
       function noteFor(code, monthNum){
-        var mn = MONTH_NOTES[monthNum];
-        return (mn && mn[code]) || SHIFTS[code].note;
+        if (code==="D" || code==="H"){
+          var base = code==="D" ? "早上 9 点上班，下午 5 点下班。" : "上午 10 点上班，下午 6 点下班。";
+          var days = daysWith(code, monthNum);
+          if (!days.length) return base + "本月没有排到 " + code + " 班。";
+          if (days.length===1) return base + "本月只有 " + monthNum + " 月 " + days[0] + " 日一天。";
+          return base + "本月共排了 " + days.length + " 天。";
+        }
+        return SHIFTS[code].note;
+      }
+      function pickerNote(code, monthNum){
+        var days = daysWith(code, monthNum);
+        if (!days.length) return "本月未排";
+        if (days.length===1) return "本月只有 " + days[0] + " 日";
+        return "本月共 " + days.length + " 天";
       }
       function fmtDate(d){
         return d.getFullYear()+" 年 "+(d.getMonth()+1)+" 月 "+d.getDate()+" 日 · "+WEEK[d.getDay()];
@@ -444,7 +536,7 @@
 
       // ===== 接下来 7 天 =====
       function renderWeekStrip(){
-        var md = MONTH_DATA[viewMonth];
+        var md = monthDataOf(currentPerson, viewMonth);
         var start = isCurrentView() ? now : new Date(2026, md.monthIndex, 1);
         document.getElementById("weekSub").textContent = isCurrentView()
           ? "从今天起一周的班次，一眼看完。"
@@ -464,7 +556,7 @@
 
       // ===== 日历 + 统计 =====
       function renderCalendar(){
-        var md = MONTH_DATA[viewMonth];
+        var md = monthDataOf(currentPerson, viewMonth);
         document.getElementById("calTitle").textContent = "2026 年 "+viewMonth+" 月整月排班";
         document.getElementById("calSub").textContent = "按 "+viewMonth+" 月份考勤表排的。点任意一天，下方详情会跳到那天"+(isCurrentView()?"；带绿框的是今天":"")+"。";
         document.getElementById("calMonthName").textContent = viewMonth+" 月";
@@ -490,7 +582,7 @@
         document.querySelectorAll(".day[data-day]").forEach(function(el){
           el.addEventListener("click", function(){
             var dayNum = parseInt(el.getAttribute("data-day"),10);
-            renderDetail(MONTH_DATA[viewMonth].schedule[dayNum], dayNum);
+            renderDetail(md.schedule[dayNum], dayNum);
             document.querySelector(".detail").scrollIntoView({behavior:"smooth", block:"nearest"});
           });
         });
@@ -502,7 +594,7 @@
       var detailBody = document.getElementById("detailBody");
       function neighborHtml(dayNum){
         if (!dayNum) return "";
-        var md = MONTH_DATA[viewMonth];
+        var md = monthDataOf(currentPerson, viewMonth);
         var prev = md.schedule[dayNum-1], next = md.schedule[dayNum+1];
         var html = '<div class="neighbor">';
         html += '<div><span>前一天 '+(dayNum-1>=1?(viewMonth+"/"+(dayNum-1)):"")+'</span>'+(prev?SHIFTS[prev].label+(prev==="OFF"?"":" "+SHIFTS[prev].start):"—")+'</div>';
@@ -510,7 +602,7 @@
         return html + '</div>';
       }
       function renderDetail(code, dayNum){
-        var md = MONTH_DATA[viewMonth];
+        var md = monthDataOf(currentPerson, viewMonth);
         var s = SHIFTS[code];
         document.querySelectorAll(".shift-btn").forEach(function(b){
           b.classList.toggle("active", b.getAttribute("data-shift")===code);
@@ -548,9 +640,20 @@
         document.querySelectorAll(".m-btn").forEach(function(b){
           b.classList.toggle("active", parseInt(b.getAttribute("data-month"),10)===viewMonth);
         });
-        document.getElementById("dBtnNote").textContent = PICKER_NOTES[viewMonth].D;
-        document.getElementById("hBtnNote").textContent = PICKER_NOTES[viewMonth].H;
-        var md = MONTH_DATA[viewMonth];
+        document.getElementById("dBtnNote").textContent = pickerNote("D", viewMonth);
+        document.getElementById("hBtnNote").textContent = pickerNote("H", viewMonth);
+        var md = monthDataOf(currentPerson, viewMonth);
+        var noDataEl = document.getElementById("noData");
+        var wrapEl = document.getElementById("scheduleWrap");
+        if (!md){
+          // 这个人在这个月没有排班数据：只显示提示，不显示任何人的班
+          noDataEl.style.display = "block";
+          wrapEl.style.display = "none";
+          document.getElementById("noDataText").textContent = currentPerson + "在 " + viewMonth + " 月还没有排班，切到有排班的月份就能看。";
+          return;
+        }
+        noDataEl.style.display = "none";
+        wrapEl.style.display = "";
         var tc;
         if (isCurrentView()){
           tc = fillCard("today", now, "今天");
@@ -570,13 +673,56 @@
           renderAll();
         });
       });
-      renderAll();
 
-      // ===== 小组件：今天 + 明天 + 一周（始终按真实日期）=====
+      // ===== 选人：顶上切换 + 第一次打开的名单 =====
+      function renderPersonRow(){
+        var html = "";
+        PEOPLE_ORDER.forEach(function(name){
+          html += '<button type="button" class="p-btn'+(name===currentPerson?" active":"")+'" data-person="'+name+'">'+name+'</button>';
+        });
+        document.getElementById("personRow").innerHTML = html;
+        document.querySelectorAll(".p-btn").forEach(function(b){
+          b.addEventListener("click", function(){ setPerson(b.getAttribute("data-person")); });
+        });
+      }
+      function setPerson(name){
+        currentPerson = name;
+        savePerson(name);
+        // 这个人在当前看的月份没排班时，自动跳到他有排班的月份
+        if (!personHasMonth(name, viewMonth)) viewMonth = defaultMonthFor(name);
+        document.getElementById("gate").style.display = "none";
+        document.getElementById("mainUI").style.display = "";
+        renderPersonRow();
+        renderAll();
+      }
+      var gateHtml = "";
+      PEOPLE_ORDER.forEach(function(name){
+        gateHtml += '<button type="button" class="gate-btn" data-person="'+name+'">'+name+'</button>';
+      });
+      document.getElementById("gateList").innerHTML = gateHtml;
+      document.querySelectorAll(".gate-btn").forEach(function(b){
+        b.addEventListener("click", function(){ setPerson(b.getAttribute("data-person")); });
+      });
+      if (currentPerson){
+        renderPersonRow();
+        renderAll();
+      } else {
+        // 第一次打开：只显示选名字名单，不默认显示任何人的班
+        document.getElementById("gate").style.display = "block";
+        document.getElementById("mainUI").style.display = "none";
+      }
+
+      // ===== 小组件：今天 + 明天 + 一周（始终按真实日期；显示本机记住的人，没记住时显示李怡姗）=====
+      var wPerson = loadPerson() || "李怡姗";
+      function wShiftOfDate(d){
+        if (d.getFullYear()!==2026) return null;
+        var md = monthDataOf(wPerson, d.getMonth()+1);
+        return md ? md.schedule[d.getDate()] : null;
+      }
       var wSize = document.documentElement.getAttribute("data-hatch-size") || "";
       var wCompact = (wSize==="small" || wSize==="watch" || wSize==="watch_round");
-      document.getElementById("wDate").textContent = "今天 · "+(now.getMonth()+1)+"月"+now.getDate()+"日 "+WEEK[now.getDay()];
-      var wCode = shiftOfDate(now), wTmCode = shiftOfDate(tomorrow);
+      document.getElementById("wDate").textContent = wPerson + " · 今天 "+(now.getMonth()+1)+"月"+now.getDate()+"日 "+WEEK[now.getDay()];
+      var wCode = wShiftOfDate(now), wTmCode = wShiftOfDate(tomorrow);
       if (wCode){
         var ws = SHIFTS[wCode];
         document.getElementById("wShift").textContent = wCode==="OFF" ? "休息" : ws.label;
@@ -597,7 +743,7 @@
       var weekHtml = "";
       for (var wj=0; wj<7; wj++){
         var wdd = new Date(now.getFullYear(), now.getMonth(), now.getDate()+wj);
-        var wcc = shiftOfDate(wdd);
+        var wcc = wShiftOfDate(wdd);
         weekHtml += '<div class="w-day '+(wcc||"")+(wj===0?" is-today":"")+'">' +
           '<span class="wd">'+(wj===0?"今天":"周"+WD1[wdd.getDay()])+'</span>' +
           '<span class="wn">'+wdd.getDate()+'</span>' +
