@@ -145,10 +145,17 @@
       .day .d{font-size:16px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;}
       .day .s{font-size:11px;font-weight:800;line-height:1;}
       .day.empty{background:transparent;cursor:default;min-height:52px;}
-      .day.C{background:var(--c-bg);} .day.C .s{color:var(--c);}
-      .day.J1{background:var(--j-bg);} .day.J1 .s{color:var(--j);}
-      .day.M{background:var(--m-bg);} .day.M .s{color:var(--m);}
-      .day.DO{background:var(--do-bg);} .day.DO .s{color:var(--do);}
+      /* 日历格底色加深：只改日历，不动徽章和班次按钮 */
+      .day.C{background:#fde68a;} .day.C .s{color:var(--c-ink);}
+      .day.J1{background:#a5e3f2;} .day.J1 .s{color:var(--j-ink);}
+      .day.M{background:#bfdbfe;} .day.M .s{color:var(--m-ink);}
+      .day.DO{background:#b0e8bd;} .day.DO .s{color:var(--do-ink);}
+      @media (prefers-color-scheme: dark){
+        .day.C{background:#5b4310;}
+        .day.J1{background:#164e63;}
+        .day.M{background:#274a6e;}
+        .day.DO{background:#2c4a33;}
+      }
       .day.is-today{outline:2.5px solid var(--accent);outline-offset:-1px;}
       .day.selected{box-shadow:inset 0 0 0 2px var(--ink);}
       .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px;}
